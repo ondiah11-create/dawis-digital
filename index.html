@@ -205,7 +205,7 @@ function App() {
   const [page, setPage] = useState('dashboard');
   const [wargaList, setWargaList] = useState(function () { return loadPersisted('dasawisma_warga', seedWarga); });
   const [kegiatanList, setKegiatanList] = useState(function () { return loadPersisted('dasawisma_kegiatan', seedKegiatan); });
-  const [keuanganList, setKeuanganList] = useState(function () { return loadPersisted('dasawisma_keuangan', seedKeuangan); });
+  const [keuanganList, setKeuanganList] = useState([]);
   const [notifikasiList, setNotifikasiList] = useState([]);
   const [tagihanList, setTagihanList] = useState([]);
   const [notifPermission, setNotifPermission] = useState(typeof Notification !== 'undefined' ? Notification.permission : 'unsupported');
