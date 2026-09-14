@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "app.netlify.graceful_nasturtium_27d3d8.twa",
+        "sha256_cert_fingerprints": ["FA:4D:5E:D3:4B:D1:1C:88:94:AF:BE:DA:22:10:00:25:56:66:C5:0C:F6:D0:90:A0:31:DD:EF:E8:BF:3E:20:5F"]
+      }
+    }]
