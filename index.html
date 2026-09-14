@@ -65,14 +65,14 @@ const firebaseConfig = {
   projectId: "dasawisma-digital",
   storageBucket: "dasawisma-digital.firebasestorage.app",
   messagingSenderId: "438802301132",
-  appId: "1:438802301132:web:aaa3518cceae7198e9c269"
+  appId: "1:438802301132:web:aaa3518cceae7198e9c269",
   measurementId: "G-7WPBDH6DW9"
 };
 
 let chatDb = null;
 let firebaseReady = false;
 try {
-  if (firebaseConfig.apiKey && firebaseConfig.apiKey.indexOf('AIzaSyAwhF2B1fU_06xDir1lJ6Pa4-3KkIecKu4') === -1) {
+  if (firebaseConfig.apiKey && firebaseConfig.apiKey.indexOf('GANTI') === -1) {
     firebase.initializeApp(firebaseConfig);
     chatDb = firebase.firestore();
     firebaseReady = true;
