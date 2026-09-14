@@ -1,0 +1,1849 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1">
+  <meta name="theme-color" content="#e11d48">
+  <meta name="description" content="Aplikasi pencatatan 8 buku wajib Dasawisma RT">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Dasawisma">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <link rel="icon" type="image/png" href="/icon-192.png">
+  <title>Dasawisma Digital</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>body{margin:0;}::-webkit-scrollbar{width:0px;}</style>
+</head>
+<body>
+  <div id="root"><div style="min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:sans-serif;color:#94a3b8;font-size:14px;">Memuat aplikasi...</div></div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+
+  <script type="text/babel">
+
+const { useState, useRef, useEffect } = React;
+
+function Icon(props) {
+  return React.createElement('svg', { className: props.className, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: '2', strokeLinecap: 'round', strokeLinejoin: 'round' }, props.children);
+}
+const IconHome = (p) => <Icon {...p}><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></Icon>;
+const IconUsers = (p) => <Icon {...p}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></Icon>;
+const IconCalendar = (p) => <Icon {...p}><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></Icon>;
+const IconWallet = (p) => <Icon {...p}><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></Icon>;
+const IconLogOut = (p) => <Icon {...p}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></Icon>;
+const IconPlus = (p) => <Icon {...p}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></Icon>;
+const IconUpload = (p) => <Icon {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></Icon>;
+const IconDownload = (p) => <Icon {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></Icon>;
+const IconPencil = (p) => <Icon {...p}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z"/></Icon>;
+const IconTrash = (p) => <Icon {...p}><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></Icon>;
+const IconX = (p) => <Icon {...p}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></Icon>;
+const IconSearch = (p) => <Icon {...p}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></Icon>;
+const IconChevronRight = (p) => <Icon {...p}><polyline points="9 18 15 12 9 6"/></Icon>;
+const IconChevronLeft = (p) => <Icon {...p}><polyline points="15 18 9 12 15 6"/></Icon>;
+const IconUserCircle = (p) => <Icon {...p}><circle cx="12" cy="12" r="10"/><circle cx="12" cy="10" r="3"/><path d="M7 20.66V19a4 4 0 0 1 4-4h2a4 4 0 0 1 4 4v1.66"/></Icon>;
+const IconArrowUpCircle = (p) => <Icon {...p}><circle cx="12" cy="12" r="10"/><polyline points="16 12 12 8 8 12"/><line x1="12" y1="16" x2="12" y2="8"/></Icon>;
+const IconArrowDownCircle = (p) => <Icon {...p}><circle cx="12" cy="12" r="10"/><polyline points="8 12 12 16 16 12"/><line x1="12" y1="8" x2="12" y2="16"/></Icon>;
+const IconMapPin = (p) => <Icon {...p}><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></Icon>;
+const IconCheckCircle = (p) => <Icon {...p}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></Icon>;
+const IconAlertCircle = (p) => <Icon {...p}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></Icon>;
+const IconSettings = (p) => <Icon {...p}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></Icon>;
+const IconBell = (p) => <Icon {...p}><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></Icon>;
+const IconPaperclip = (p) => <Icon {...p}><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></Icon>;
+const IconMessageCircle = (p) => <Icon {...p}><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></Icon>;
+const IconSend = (p) => <Icon {...p}><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></Icon>;
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAwhF2B1fU_06xDir1lJ6Pa4-3KkIecKu4",
+  authDomain: "dasawisma-digital.firebaseapp.com",
+  projectId: "dasawisma-digital",
+  storageBucket: "dasawisma-digital.firebasestorage.app",
+  messagingSenderId: "438802301132",
+  appId: "1:438802301132:web:aaa3518cceae7198e9c269"
+  measurementId: "G-7WPBDH6DW9"
+};
+
+let chatDb = null;
+let firebaseReady = false;
+try {
+  if (firebaseConfig.apiKey && firebaseConfig.apiKey.indexOf('AIzaSyAwhF2B1fU_06xDir1lJ6Pa4-3KkIecKu4') === -1) {
+    firebase.initializeApp(firebaseConfig);
+    chatDb = firebase.firestore();
+    firebaseReady = true;
+  }
+} catch (e) {
+  firebaseReady = false;
+}
+
+const POKJA_LIST = ['Pokja I', 'Pokja II', 'Pokja III', 'Pokja IV', 'Umum'];
+const SUMBER_AIR_LIST = ['PDAM', 'Sumur', 'Sungai', 'Lainnya'];
+const KATEGORI_MASUK = ['Kas PKK', 'Kas Dawis', 'Posyandu', 'Arisan', 'Iuran Anggota', 'Sumbangan', 'Bantuan PKK', 'Lainnya'];
+const KATEGORI_KELUAR = ['Operasional', 'Konsumsi Kegiatan', 'ATK', 'Sosial', 'Lainnya'];
+const WARGA_HEADERS = ['Nama Kepala Keluarga', 'RT', 'Alamat', 'Balita', 'PUS', 'WUS', 'Ibu Hamil', 'Ibu Menyusui', 'Lansia', '3 Buta', 'Berkebutuhan Khusus', 'Kriteria Rumah', 'Jamban', 'Sumber Air', 'Tempat Sampah', 'Saluran Limbah', 'Stiker P4K', 'Makanan Pokok', 'UP2K', 'Jenis Usaha'];
+const KEGIATAN_HEADERS = ['Nama Kegiatan', 'Tanggal', 'Pokja', 'Jumlah Peserta', 'Tempat', 'Keterangan'];
+const KEUANGAN_HEADERS = ['Tanggal', 'Jenis', 'Kategori', 'Nominal', 'Keterangan'];
+const NOTIF_KATEGORI = ['Pengumuman', 'Tagihan', 'Kegiatan'];
+const TAGIHAN_KATEGORI = ['Kas PKK', 'Kas Dawis', 'Posyandu', 'Arisan', 'Lain-lain'];
+
+function safeGetItem(key) {
+  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch (e) { return null; }
+}
+function safeSetItem(key, val) {
+  try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {}
+}
+function loadPersisted(key, fallback) {
+  const v = safeGetItem(key);
+  return v !== null ? v : fallback;
+}
+function getPeriode(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+}
+function compressImage(file, maxDim, quality) {
+  return new Promise(function (resolve, reject) {
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      const img = new Image();
+      img.onload = function () {
+        let w = img.width, h = img.height;
+        if (w > h && w > maxDim) { h = Math.round(h * (maxDim / w)); w = maxDim; }
+        else if (h >= w && h > maxDim) { w = Math.round(w * (maxDim / h)); h = maxDim; }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = function () { reject(new Error('gagal load gambar')); };
+      img.src = e.target.result;
+    };
+    reader.onerror = function () { reject(new Error('gagal baca file')); };
+    reader.readAsDataURL(file);
+  });
+}
+
+let idCounter = safeGetItem('dasawisma_idcounter') || 1000;
+const nextId = () => { const id = idCounter++; safeSetItem('dasawisma_idcounter', idCounter); return id; };
+
+const emptyWargaForm = () => ({
+  id: null, namaKK: '', rt: '', alamat: '', anggota: [],
+  balita: 0, pus: 0, wus: 0, bumil: 0, busui: 0, lansia: 0, tigaButa: 0, berkebutuhan: 0,
+  kriteriaRumah: 'Sehat', jamban: 'Ya', sumberAir: 'PDAM', sampah: 'Ya', limbah: 'Ya',
+  stikerP4K: 'Tidak', makanan: 'Beras', up2k: 'Tidak', jenisUsaha: ''
+});
+const emptyKegiatanForm = () => ({ id: null, nama: '', tanggal: '', pokja: 'Umum', peserta: 0, tempat: '', keterangan: '' });
+const emptyKeuanganForm = () => ({ id: null, tanggal: '', jenis: 'Masuk', kategori: '', nominal: 0, keterangan: '', attachment: null });
+const emptyIuranForm = () => ({ nama: '', tanggal: '', attachment: null, pkk: 5000, posyandu: 2000, dawis: 7000, arisan: 0, lainLain: 0 });
+const emptyNotifForm = () => ({ judul: '', pesan: '', kategori: 'Pengumuman', tanggal: '', berulang: false });
+const emptyPengajuanForm = () => ({ nominal: 0, tanggal: '', bukti: null });
+const emptyKlasifikasiForm = () => ({ kasPkk: 0, kasDawis: 0, posyandu: 0, arisan: 0, lainLain: 0 });
+
+const seedWarga = [];
+const seedKegiatan = [];
+const seedKeuangan = [];
+const seedUsers = [
+  { id: nextId(), namaLengkap: 'Ketua Dasawisma', username: 'pengurus', password: 'pengurus123', role: 'pengurus', wargaId: null }
+];
+
+const formatRupiah = (n) => 'Rp ' + Number(n || 0).toLocaleString('id-ID');
+const formatTanggal = (str) => {
+  if (!str) return '-';
+  try { return new Date(str).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }); }
+  catch (e) { return str; }
+};
+const excelSerialToDate = (serial) => {
+  const utcDays = Math.floor(serial - 25569);
+  const d = new Date(utcDays * 86400 * 1000);
+  return d.toISOString().slice(0, 10);
+};
+const parseExcelDate = (val) => {
+  if (val === undefined || val === null || val === '') return '';
+  if (typeof val === 'number') return excelSerialToDate(val);
+  if (val instanceof Date) return val.toISOString().slice(0, 10);
+  return String(val);
+};
+const getField = (row, key) => {
+  const foundKey = Object.keys(row).find(function (k) { return k.trim().toLowerCase() === key.trim().toLowerCase(); });
+  return foundKey ? row[foundKey] : '';
+};
+const downloadExcel = (rows, filename, sheetName) => {
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  const blob = new Blob([out], { type: 'application/octet-stream' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+};
+const downloadTemplate = (headers, filename, sheetName) => {
+  const ws = XLSX.utils.aoa_to_sheet([headers]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  const blob = new Blob([out], { type: 'application/octet-stream' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+};
+
+function App() {
+  const [users, setUsers] = useState(function () { return loadPersisted('dasawisma_users', seedUsers); });
+  const [currentUser, setCurrentUser] = useState(function () { return loadPersisted('dasawisma_session', null); });
+  const [loginForm, setLoginForm] = useState({ username: '', password: '' });
+  const [akunForm, setAkunForm] = useState({ namaLengkap: '', username: '', password: '' });
+  const [akunWargaModal, setAkunWargaModal] = useState(null);
+  const [akunWargaForm, setAkunWargaForm] = useState({ username: '', password: '', role: 'anggota' });
+
+  const [page, setPage] = useState('dashboard');
+  const [wargaList, setWargaList] = useState(function () { return loadPersisted('dasawisma_warga', seedWarga); });
+  const [kegiatanList, setKegiatanList] = useState(function () { return loadPersisted('dasawisma_kegiatan', seedKegiatan); });
+  const [keuanganList, setKeuanganList] = useState(function () { return loadPersisted('dasawisma_keuangan', seedKeuangan); });
+  const [notifikasiList, setNotifikasiList] = useState([]);
+  const [tagihanList, setTagihanList] = useState([]);
+  const [notifPermission, setNotifPermission] = useState(typeof Notification !== 'undefined' ? Notification.permission : 'unsupported');
+  const mountTimeRef = useRef(Date.now());
+  const [toast, setToast] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null);
+
+  const [searchWarga, setSearchWarga] = useState('');
+  const [filterPokja, setFilterPokja] = useState('Semua');
+  const [keuanganBulan, setKeuanganBulan] = useState(new Date());
+  const [expandedCategory, setExpandedCategory] = useState(null);
+
+  const [wargaModal, setWargaModal] = useState(null);
+  const [wargaForm, setWargaForm] = useState(emptyWargaForm());
+  const [viewingWarga, setViewingWarga] = useState(null);
+
+  const [kegiatanModal, setKegiatanModal] = useState(null);
+  const [kegiatanForm, setKegiatanForm] = useState(emptyKegiatanForm());
+
+  const [keuanganModal, setKeuanganModal] = useState(null);
+  const [keuanganForm, setKeuanganForm] = useState(emptyKeuanganForm());
+
+  const [iuranModal, setIuranModal] = useState(false);
+  const [iuranForm, setIuranForm] = useState(emptyIuranForm());
+
+  const [notifModal, setNotifModal] = useState(false);
+  const [notifForm, setNotifForm] = useState(emptyNotifForm());
+  const [pengajuanModal, setPengajuanModal] = useState(false);
+  const [pengajuanForm, setPengajuanForm] = useState(emptyPengajuanForm());
+  const [klasifikasiModal, setKlasifikasiModal] = useState(null);
+  const [klasifikasiForm, setKlasifikasiForm] = useState(emptyKlasifikasiForm());
+
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState('');
+  const chatEndRef = useRef(null);
+
+  const role = currentUser ? currentUser.role : null;
+
+  const showToast = (message, type) => {
+    setToast({ message: message, type: type || 'success' });
+    setTimeout(function () { setToast(null); }, 2800);
+  };
+
+  useEffect(function () { safeSetItem('dasawisma_users', users); }, [users]);
+  useEffect(function () { safeSetItem('dasawisma_warga', wargaList); }, [wargaList]);
+  useEffect(function () { safeSetItem('dasawisma_kegiatan', kegiatanList); }, [kegiatanList]);
+  useEffect(function () { safeSetItem('dasawisma_keuangan', keuanganList); }, [keuanganList]);
+  useEffect(function () {
+    if (currentUser) safeSetItem('dasawisma_session', currentUser);
+    else { try { localStorage.removeItem('dasawisma_session'); } catch (e) {} }
+  }, [currentUser]);
+
+  const showLocalNotification = (judul, pesan) => {
+    if (notifPermission !== 'granted') return;
+    try {
+      if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+        navigator.serviceWorker.ready.then(function (reg) { reg.showNotification(judul, { body: pesan, icon: '/icon-192.png' }); });
+      } else if (typeof Notification !== 'undefined') {
+        new Notification(judul, { body: pesan });
+      }
+    } catch (e) {}
+  };
+  const requestNotifPermission = () => {
+    if (typeof Notification === 'undefined') { showToast('Browser/HP ini tidak mendukung notifikasi', 'error'); return; }
+    Notification.requestPermission().then(function (perm) {
+      setNotifPermission(perm);
+      if (perm === 'granted') showToast('Notifikasi diaktifkan');
+      else showToast('Izin notifikasi ditolak', 'error');
+    });
+  };
+
+  useEffect(function () {
+    if (!chatDb) return;
+    const unsub = chatDb.collection('dasawisma_notifikasi')
+      .orderBy('createdAt', 'desc')
+      .limit(100)
+      .onSnapshot(function (snapshot) {
+        const items = snapshot.docs.map(function (doc) { return Object.assign({ id: doc.id }, doc.data()); });
+        setNotifikasiList(items);
+        snapshot.docChanges().forEach(function (change) {
+          if (change.type === 'added') {
+            const data = change.doc.data();
+            const createdMs = data.createdAt && data.createdAt.toMillis ? data.createdAt.toMillis() : 0;
+            if (createdMs > mountTimeRef.current) showLocalNotification(data.judul, data.pesan);
+          }
+        });
+      }, function () { setNotifikasiList([]); });
+    return function () { unsub(); };
+  }, [notifPermission]);
+
+  useEffect(function () {
+    if (!chatDb) return;
+    const unsub = chatDb.collection('dasawisma_tagihan')
+      .orderBy('createdAt', 'desc')
+      .limit(200)
+      .onSnapshot(function (snapshot) {
+        const items = snapshot.docs.map(function (doc) { return Object.assign({ id: doc.id }, doc.data()); });
+        setTagihanList(items);
+      }, function () { setTagihanList([]); });
+    return function () { unsub(); };
+  }, []);
+
+  useEffect(function () {
+    if (!chatDb) return;
+    const unsub = chatDb.collection('dasawisma_chat_messages')
+      .orderBy('timestamp', 'asc')
+      .limitToLast(200)
+      .onSnapshot(function (snapshot) {
+        const msgs = snapshot.docs.map(function (doc) {
+          const d = doc.data();
+          return { id: doc.id, nama: d.nama, role: d.role, text: d.text, timestamp: d.timestamp };
+        });
+        setChatMessages(msgs);
+      }, function () { setChatMessages([]); });
+    return function () { unsub(); };
+  }, []);
+
+  useEffect(function () {
+    if (page === 'chat' && chatEndRef.current) chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages, page]);
+
+  const sendChatMessage = () => {
+    if (!chatInput.trim() || !chatDb || !currentUser) return;
+    const text = chatInput.trim();
+    setChatInput('');
+    chatDb.collection('dasawisma_chat_messages').add({
+      nama: currentUser.namaLengkap, role: currentUser.role, text: text,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    }).catch(function () { showToast('Gagal mengirim pesan, cek koneksi internet', 'error'); });
+  };
+
+  const handleLogin = () => {
+    const u = users.find(function (u) { return u.username === loginForm.username && u.password === loginForm.password; });
+    if (!u) { showToast('Username atau password salah', 'error'); return; }
+    setCurrentUser(u);
+    setPage('dashboard');
+    setLoginForm({ username: '', password: '' });
+  };
+  const handleLogout = () => { setCurrentUser(null); setPage('dashboard'); };
+  const openPengaturan = () => {
+    setAkunForm({ namaLengkap: currentUser.namaLengkap, username: currentUser.username, password: '' });
+    if (currentUser.role === 'anggota') {
+      const mine = wargaList.find(function (w) { return w.id === currentUser.wargaId; });
+      setWargaForm(mine ? JSON.parse(JSON.stringify(mine)) : emptyWargaForm());
+    }
+    setPage('pengaturan');
+  };
+  const saveAkun = () => {
+    if (!akunForm.namaLengkap.trim() || !akunForm.username.trim()) { showToast('Nama dan username wajib diisi', 'error'); return; }
+    if (users.some(function (u) { return u.id !== currentUser.id && u.username.toLowerCase() === akunForm.username.toLowerCase(); })) {
+      showToast('Username sudah digunakan', 'error'); return;
+    }
+    const updated = Object.assign({}, currentUser, { namaLengkap: akunForm.namaLengkap.trim(), username: akunForm.username.trim() });
+    if (akunForm.password) updated.password = akunForm.password;
+    setUsers(function (prev) { return prev.map(function (u) { return u.id === currentUser.id ? updated : u; }); });
+    setCurrentUser(updated);
+    setAkunForm(function (prev) { return Object.assign({}, prev, { password: '' }); });
+    showToast('Akun berhasil diperbarui');
+  };
+  const saveMyWarga = () => {
+    if (!wargaForm.namaKK.trim()) { showToast('Nama kepala keluarga wajib diisi', 'error'); return; }
+    setWargaList(function (prev) { return prev.map(function (w) { return w.id === currentUser.wargaId ? Object.assign({}, wargaForm, { id: currentUser.wargaId }) : w; }); });
+    showToast('Data keluarga berhasil diperbarui');
+  };
+
+  const openCreateAkunWarga = (warga) => {
+    setAkunWargaModal({ mode: 'create', wargaId: warga.id, namaKK: warga.namaKK });
+    setAkunWargaForm({ username: '', password: '', role: 'anggota' });
+  };
+  const openResetAkunWarga = (u) => {
+    setAkunWargaModal({ mode: 'reset', userId: u.id, namaKK: u.namaLengkap });
+    setAkunWargaForm({ username: u.username, password: '', role: u.role });
+  };
+  const saveAkunWarga = () => {
+    if (!akunWargaForm.username.trim() || !akunWargaForm.password) { showToast('Username dan password wajib diisi', 'error'); return; }
+    if (akunWargaModal.mode === 'create') {
+      if (users.some(function (u) { return u.username.toLowerCase() === akunWargaForm.username.toLowerCase(); })) {
+        showToast('Username sudah digunakan', 'error'); return;
+      }
+      const warga = wargaList.find(function (w) { return w.id === akunWargaModal.wargaId; });
+      const newUser = {
+        id: nextId(), namaLengkap: warga.namaKK, username: akunWargaForm.username.trim(),
+        password: akunWargaForm.password, role: akunWargaForm.role, wargaId: warga.id
+      };
+      setUsers(function (prev) { return prev.concat([newUser]); });
+      showToast('Akun ' + (akunWargaForm.role === 'pengurus' ? 'Pengurus' : 'Anggota') + ' berhasil dibuat untuk ' + warga.namaKK);
+    } else {
+      if (users.some(function (u) { return u.id !== akunWargaModal.userId && u.username.toLowerCase() === akunWargaForm.username.toLowerCase(); })) {
+        showToast('Username sudah digunakan', 'error'); return;
+      }
+      setUsers(function (prev) { return prev.map(function (u) { return u.id === akunWargaModal.userId ? Object.assign({}, u, { username: akunWargaForm.username.trim(), password: akunWargaForm.password, role: akunWargaForm.role }) : u; }); });
+      showToast('Username & password berhasil direset');
+    }
+    setAkunWargaModal(null);
+  };
+
+  const myWarga = currentUser && currentUser.wargaId ? wargaList.find(function (w) { return w.id === currentUser.wargaId; }) : null;
+  const allMembers = wargaList.reduce(function (acc, w) { return acc.concat(w.anggota); }, []);
+  const totalKK = wargaList.length;
+  const totalLaki = allMembers.filter(function (m) { return m.jk === 'L'; }).length;
+  const totalPerempuan = allMembers.filter(function (m) { return m.jk === 'P'; }).length;
+  const totalJiwa = allMembers.length;
+  const totalBalita = wargaList.reduce(function (s, w) { return s + Number(w.balita || 0); }, 0);
+  const totalPus = wargaList.reduce(function (s, w) { return s + Number(w.pus || 0); }, 0);
+  const totalWus = wargaList.reduce(function (s, w) { return s + Number(w.wus || 0); }, 0);
+  const totalBumil = wargaList.reduce(function (s, w) { return s + Number(w.bumil || 0); }, 0);
+  const totalBusui = wargaList.reduce(function (s, w) { return s + Number(w.busui || 0); }, 0);
+  const totalLansia = wargaList.reduce(function (s, w) { return s + Number(w.lansia || 0); }, 0);
+
+  const now = new Date();
+  const localKegiatanBulanIni = kegiatanList.filter(function (k) {
+    if (!k.tanggal) return false;
+    const d = new Date(k.tanggal);
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  }).map(function (k) { return { id: 'k' + k.id, tanggal: k.tanggal, nama: k.nama, sub: k.pokja + (k.tempat ? ' · ' + k.tempat : '') + (k.peserta ? ' · ' + k.peserta + ' peserta' : '') }; });
+  const notifKegiatanBulanIni = notifikasiList.filter(function (n) {
+    if (n.kategori !== 'Kegiatan' || !n.tanggal) return false;
+    const d = new Date(n.tanggal);
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  }).map(function (n) { return { id: 'n' + n.id, tanggal: n.tanggal, nama: n.judul, sub: n.pesan || 'Info dari pengurus' }; });
+  const kegiatanBulanIniList = localKegiatanBulanIni.concat(notifKegiatanBulanIni).sort(function (a, b) { return new Date(a.tanggal) - new Date(b.tanggal); });
+
+  const totalMasuk = keuanganList.filter(function (k) { return k.jenis === 'Masuk'; }).reduce(function (s, k) { return s + Number(k.nominal || 0); }, 0);
+  const totalKeluar = keuanganList.filter(function (k) { return k.jenis === 'Keluar'; }).reduce(function (s, k) { return s + Number(k.nominal || 0); }, 0);
+  const saldoKas = totalMasuk - totalKeluar;
+
+  const monthLabel = keuanganBulan.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+  const keuanganBulanList = keuanganList.filter(function (k) {
+    if (!k.tanggal) return false;
+    const d = new Date(k.tanggal);
+    return d.getMonth() === keuanganBulan.getMonth() && d.getFullYear() === keuanganBulan.getFullYear();
+  }).sort(function (a, b) { return new Date(b.tanggal) - new Date(a.tanggal); });
+  const masukBulanIni = keuanganBulanList.filter(function (k) { return k.jenis === 'Masuk'; }).reduce(function (s, k) { return s + Number(k.nominal || 0); }, 0);
+  const keluarBulanIni = keuanganBulanList.filter(function (k) { return k.jenis === 'Keluar'; }).reduce(function (s, k) { return s + Number(k.nominal || 0); }, 0);
+  const prevBulan = () => setKeuanganBulan(function (prev) { return new Date(prev.getFullYear(), prev.getMonth() - 1, 1); });
+  const nextBulan = () => setKeuanganBulan(function (prev) { return new Date(prev.getFullYear(), prev.getMonth() + 1, 1); });
+  const monthlyReport = (function () {
+    const map = {};
+    keuanganBulanList.forEach(function (k) {
+      const key = k.jenis + '|' + k.kategori;
+      if (!map[key]) map[key] = { key: key, jenis: k.jenis, kategori: k.kategori, total: 0, items: [] };
+      map[key].total += Number(k.nominal || 0);
+      map[key].items.push(k);
+    });
+    return Object.keys(map).map(function (k) { return map[k]; }).sort(function (a, b) {
+      if (a.jenis !== b.jenis) return a.jenis === 'Masuk' ? -1 : 1;
+      return b.total - a.total;
+    });
+  })();
+
+  const currentPeriode = getPeriode(new Date());
+  const pendingTagihan = tagihanList.filter(function (t) { return t.status === 'pending'; });
+  const myTagihanThisPeriod = currentUser && currentUser.wargaId ? tagihanList.find(function (t) { return t.wargaId === currentUser.wargaId && t.periode === currentPeriode && t.status !== 'rejected'; }) : null;
+  const myTagihanStatus = myTagihanThisPeriod ? myTagihanThisPeriod.status : null;
+  const myApprovedThisPeriod = myTagihanStatus === 'approved';
+  const visibleNotifikasi = notifikasiList.filter(function (n) {
+    if (role === 'anggota' && n.kategori === 'Tagihan' && n.berulang && myApprovedThisPeriod) return false;
+    return true;
+  });
+
+  const filteredWarga = wargaList.filter(function (w) { return w.namaKK.toLowerCase().includes(searchWarga.toLowerCase()); });
+  const sortedKegiatan = kegiatanList.filter(function (k) { return filterPokja === 'Semua' || k.pokja === filterPokja; })
+    .sort(function (a, b) { return new Date(b.tanggal) - new Date(a.tanggal); });
+
+  const navItems = [
+    { key: 'dashboard', label: 'Beranda', icon: IconHome },
+    { key: 'warga', label: role === 'pengurus' ? 'Warga' : 'Keluarga', icon: IconUsers },
+    { key: 'kegiatan', label: 'Kegiatan', icon: IconCalendar },
+    { key: 'keuangan', label: 'Keuangan', icon: IconWallet },
+    { key: 'chat', label: 'Chat', icon: IconMessageCircle }
+  ];
+  const pageTitles = { dashboard: 'Beranda', warga: role === 'pengurus' ? 'Data Warga' : 'Keluarga Saya', kegiatan: 'Kegiatan Dasawisma', keuangan: 'Keuangan / Kas', pengaturan: 'Pengaturan', chat: 'Chat Grup', notifikasi: 'Notifikasi' };
+
+  const pengurusStatCards = [
+    { label: 'Total KK', value: totalKK, icon: IconUsers, bg: 'bg-rose-50', text: 'text-rose-600', page: 'warga' },
+    { label: 'Total Jiwa', value: totalJiwa, icon: IconUserCircle, bg: 'bg-blue-50', text: 'text-blue-600', page: 'warga' },
+    { label: 'Kegiatan Bulan Ini', value: kegiatanBulanIniList.length, icon: IconCalendar, bg: 'bg-amber-50', text: 'text-amber-600', page: 'kegiatan' },
+    { label: 'Saldo Kas', value: formatRupiah(saldoKas), icon: IconWallet, bg: 'bg-emerald-50', text: 'text-emerald-600', page: 'keuangan' }
+  ];
+  const anggotaStatCards = [
+    { label: 'Kegiatan Bulan Ini', value: kegiatanBulanIniList.length, icon: IconCalendar, bg: 'bg-amber-50', text: 'text-amber-600', page: 'kegiatan' },
+    { label: 'Saldo Kas', value: formatRupiah(saldoKas), icon: IconWallet, bg: 'bg-emerald-50', text: 'text-emerald-600', page: 'keuangan' }
+  ];
+  const dashboardStatCards = role === 'pengurus' ? pengurusStatCards : anggotaStatCards;
+
+  const openAddWarga = () => { setWargaForm(emptyWargaForm()); setWargaModal('add'); };
+  const openEditWarga = (w) => { setWargaForm(JSON.parse(JSON.stringify(w))); setWargaModal('edit'); };
+  const saveWarga = () => {
+    if (!wargaForm.namaKK.trim()) { showToast('Nama kepala keluarga wajib diisi', 'error'); return; }
+    if (wargaModal === 'add') {
+      setWargaList(function (prev) { return prev.concat([Object.assign({}, wargaForm, { id: nextId() })]); });
+      showToast('Data keluarga berhasil ditambahkan');
+    } else {
+      setWargaList(function (prev) { return prev.map(function (w) { return w.id === wargaForm.id ? wargaForm : w; }); });
+      showToast('Data keluarga berhasil diperbarui');
+    }
+    setWargaModal(null);
+  };
+  const addMemberRow = () => setWargaForm(function (prev) {
+    return Object.assign({}, prev, { anggota: prev.anggota.concat([{ id: nextId(), nama: '', jk: 'L', tglLahir: '', statusKeluarga: '', statusKawin: 'Belum Kawin', pendidikan: '', pekerjaan: '' }]) });
+  });
+  const updateMemberRow = (idx, field, val) => setWargaForm(function (prev) {
+    const anggota = prev.anggota.slice();
+    anggota[idx] = Object.assign({}, anggota[idx], { [field]: val });
+    return Object.assign({}, prev, { anggota: anggota });
+  });
+  const removeMemberRow = (idx) => setWargaForm(function (prev) { return Object.assign({}, prev, { anggota: prev.anggota.filter(function (_, i) { return i !== idx; }) }); });
+
+  const exportWarga = () => {
+    const rows = wargaList.map(function (w) {
+      return {
+        'Nama Kepala Keluarga': w.namaKK, 'RT': w.rt, 'Alamat': w.alamat,
+        'Jumlah Anggota': w.anggota.length,
+        'Laki-laki': w.anggota.filter(function (m) { return m.jk === 'L'; }).length,
+        'Perempuan': w.anggota.filter(function (m) { return m.jk === 'P'; }).length,
+        'Balita': w.balita, 'PUS': w.pus, 'WUS': w.wus, 'Ibu Hamil': w.bumil, 'Ibu Menyusui': w.busui,
+        'Lansia': w.lansia, '3 Buta': w.tigaButa, 'Berkebutuhan Khusus': w.berkebutuhan,
+        'Kriteria Rumah': w.kriteriaRumah, 'Jamban': w.jamban, 'Sumber Air': w.sumberAir,
+        'Tempat Sampah': w.sampah, 'Saluran Limbah': w.limbah, 'Stiker P4K': w.stikerP4K,
+        'Makanan Pokok': w.makanan, 'UP2K': w.up2k, 'Jenis Usaha': w.jenisUsaha
+      };
+    });
+    downloadExcel(rows, 'Data_Warga_Dasawisma.xlsx', 'Data Warga');
+    showToast('Data warga berhasil diexport');
+  };
+
+  const openAddKegiatan = () => { setKegiatanForm(emptyKegiatanForm()); setKegiatanModal('add'); };
+  const openEditKegiatan = (k) => { setKegiatanForm(Object.assign({}, k)); setKegiatanModal('edit'); };
+  const saveKegiatan = () => {
+    if (!kegiatanForm.nama.trim()) { showToast('Nama kegiatan wajib diisi', 'error'); return; }
+    if (kegiatanModal === 'add') { setKegiatanList(function (prev) { return prev.concat([Object.assign({}, kegiatanForm, { id: nextId() })]); }); showToast('Kegiatan berhasil ditambahkan'); }
+    else { setKegiatanList(function (prev) { return prev.map(function (k) { return k.id === kegiatanForm.id ? kegiatanForm : k; }); }); showToast('Kegiatan berhasil diperbarui'); }
+    setKegiatanModal(null);
+  };
+  const exportKegiatan = () => {
+    const rows = kegiatanList.map(function (k) { return { 'Nama Kegiatan': k.nama, 'Tanggal': k.tanggal, 'Pokja': k.pokja, 'Jumlah Peserta': k.peserta, 'Tempat': k.tempat, 'Keterangan': k.keterangan }; });
+    downloadExcel(rows, 'Data_Kegiatan_Dasawisma.xlsx', 'Kegiatan');
+    showToast('Data kegiatan berhasil diexport');
+  };
+
+  const openAddKeuangan = () => { setKeuanganForm(emptyKeuanganForm()); setKeuanganModal('add'); };
+  const openEditKeuangan = (k) => { setKeuanganForm(Object.assign({}, k)); setKeuanganModal('edit'); };
+  const saveKeuangan = () => {
+    if (!keuanganForm.kategori.trim() || !keuanganForm.nominal) { showToast('Kategori dan nominal wajib diisi', 'error'); return; }
+    if (keuanganModal === 'add') { setKeuanganList(function (prev) { return prev.concat([Object.assign({}, keuanganForm, { id: nextId() })]); }); showToast('Transaksi berhasil ditambahkan'); }
+    else { setKeuanganList(function (prev) { return prev.map(function (k) { return k.id === keuanganForm.id ? keuanganForm : k; }); }); showToast('Transaksi berhasil diperbarui'); }
+    setKeuanganModal(null);
+  };
+  const exportKeuangan = () => {
+    const rows = keuanganList.map(function (k) { return { 'Tanggal': k.tanggal, 'Jenis': k.jenis, 'Kategori': k.kategori, 'Nominal': k.nominal, 'Keterangan': k.keterangan }; });
+    downloadExcel(rows, 'Data_Keuangan_Dasawisma.xlsx', 'Keuangan');
+    showToast('Data keuangan berhasil diexport');
+  };
+  const handleAttachmentChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    compressImage(file, 900, 0.65).then(function (dataUrl) {
+      setKeuanganForm(function (prev) { return Object.assign({}, prev, { attachment: { name: file.name, dataUrl: dataUrl } }); });
+    }).catch(function () { showToast('Gagal memproses foto', 'error'); });
+    e.target.value = '';
+  };
+
+  const openIuran = () => { setIuranForm(emptyIuranForm()); setIuranModal(true); };
+  const handleIuranAttachment = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    compressImage(file, 900, 0.65).then(function (dataUrl) {
+      setIuranForm(function (prev) { return Object.assign({}, prev, { attachment: { name: file.name, dataUrl: dataUrl } }); });
+    }).catch(function () { showToast('Gagal memproses foto', 'error'); });
+    e.target.value = '';
+  };
+  const saveIuran = () => {
+    if (!iuranForm.tanggal) { showToast('Tanggal pembayaran wajib diisi', 'error'); return; }
+    const total = Number(iuranForm.pkk || 0) + Number(iuranForm.posyandu || 0) + Number(iuranForm.dawis || 0) + Number(iuranForm.arisan || 0) + Number(iuranForm.lainLain || 0);
+    if (total <= 0) { showToast('Nominal tidak boleh kosong semua', 'error'); return; }
+    const note = iuranForm.nama || '';
+    const newEntries = [];
+    const mapping = [['pkk', 'Kas PKK'], ['posyandu', 'Posyandu'], ['dawis', 'Kas Dawis'], ['arisan', 'Arisan'], ['lainLain', 'Lain-lain']];
+    let firstDone = false;
+    mapping.forEach(function (pair) {
+      const val = Number(iuranForm[pair[0]] || 0);
+      if (val > 0) {
+        newEntries.push({
+          id: nextId(), tanggal: iuranForm.tanggal, jenis: 'Masuk', kategori: pair[1], nominal: val,
+          keterangan: note + (firstDone && iuranForm.attachment ? ' (bukti sama dgn ' + newEntries[0].kategori + ')' : ''),
+          attachment: !firstDone ? iuranForm.attachment : null
+        });
+        firstDone = true;
+      }
+    });
+    setKeuanganList(function (prev) { return prev.concat(newEntries); });
+    showToast('Iuran berhasil dicatat (' + newEntries.length + ' entri)');
+    setIuranModal(false);
+  };
+
+  const openNotif = () => { setNotifForm(emptyNotifForm()); setNotifModal(true); };
+  const saveNotif = () => {
+    if (!notifForm.judul.trim()) { showToast('Judul wajib diisi', 'error'); return; }
+    if (!chatDb) { showToast('Firebase belum aktif, lihat README', 'error'); return; }
+    chatDb.collection('dasawisma_notifikasi').add({
+      judul: notifForm.judul.trim(), pesan: notifForm.pesan, kategori: notifForm.kategori,
+      tanggal: notifForm.tanggal, berulang: notifForm.berulang,
+      createdBy: currentUser.namaLengkap, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    }).then(function () { showToast('Notifikasi berhasil dibuat'); setNotifModal(false); })
+      .catch(function () { showToast('Gagal membuat notifikasi', 'error'); });
+  };
+
+  const openPengajuan = () => { setPengajuanForm(emptyPengajuanForm()); setPengajuanModal(true); };
+  const handlePengajuanBukti = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    compressImage(file, 800, 0.6).then(function (dataUrl) {
+      setPengajuanForm(function (prev) { return Object.assign({}, prev, { bukti: dataUrl }); });
+    }).catch(function () { showToast('Gagal memproses foto', 'error'); });
+    e.target.value = '';
+  };
+  const submitPengajuan = () => {
+    if (!pengajuanForm.nominal || Number(pengajuanForm.nominal) <= 0) { showToast('Nominal wajib diisi', 'error'); return; }
+    if (!pengajuanForm.tanggal) { showToast('Tanggal wajib diisi', 'error'); return; }
+    if (!chatDb) { showToast('Firebase belum aktif, lihat README', 'error'); return; }
+    const periode = getPeriode(new Date(pengajuanForm.tanggal));
+    chatDb.collection('dasawisma_tagihan').add({
+      wargaId: currentUser.wargaId, namaPengaju: currentUser.namaLengkap,
+      nominal: Number(pengajuanForm.nominal), tanggal: pengajuanForm.tanggal, periode: periode,
+      buktiDataUrl: pengajuanForm.bukti, status: 'pending',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    }).then(function (docRef) {
+      return chatDb.collection('dasawisma_notifikasi').add({
+        judul: 'Bukti Pembayaran Baru',
+        pesan: currentUser.namaLengkap + ' mengajukan pembayaran ' + formatRupiah(pengajuanForm.nominal),
+        kategori: 'Tagihan', tanggal: pengajuanForm.tanggal, berulang: false, tagihanRef: docRef.id,
+        createdBy: currentUser.namaLengkap, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }).then(function () { showToast('Bukti pembayaran terkirim, menunggu persetujuan pengurus'); setPengajuanModal(false); })
+      .catch(function () { showToast('Gagal mengirim, cek koneksi internet', 'error'); });
+  };
+
+  const openKlasifikasi = (t) => { setKlasifikasiForm(emptyKlasifikasiForm()); setKlasifikasiModal(t); };
+  const klasifikasiTotal = function (f) { return Number(f.kasPkk || 0) + Number(f.kasDawis || 0) + Number(f.posyandu || 0) + Number(f.arisan || 0) + Number(f.lainLain || 0); };
+  const approveTagihan = () => {
+    const t = klasifikasiModal;
+    const total = klasifikasiTotal(klasifikasiForm);
+    if (total !== Number(t.nominal)) { showToast('Total klasifikasi (' + formatRupiah(total) + ') harus sama dengan nominal diajukan (' + formatRupiah(t.nominal) + ')', 'error'); return; }
+    const entries = [];
+    const mapping = [['kasPkk', 'Kas PKK'], ['kasDawis', 'Kas Dawis'], ['posyandu', 'Posyandu'], ['arisan', 'Arisan'], ['lainLain', 'Lain-lain']];
+    let firstDone = false;
+    mapping.forEach(function (pair) {
+      const val = Number(klasifikasiForm[pair[0]] || 0);
+      if (val > 0) {
+        entries.push({
+          id: nextId(), tanggal: t.tanggal, jenis: 'Masuk', kategori: pair[1], nominal: val,
+          keterangan: t.namaPengaju, attachment: !firstDone && t.buktiDataUrl ? { name: 'bukti-' + t.id + '.jpg', dataUrl: t.buktiDataUrl } : null
+        });
+        firstDone = true;
+      }
+    });
+    setKeuanganList(function (prev) { return prev.concat(entries); });
+    if (chatDb) chatDb.collection('dasawisma_tagihan').doc(t.id).update({ status: 'approved', klasifikasi: klasifikasiForm });
+    showToast('Pembayaran disetujui & tercatat di keuangan');
+    setKlasifikasiModal(null);
+  };
+  const rejectTagihan = (t) => {
+    if (chatDb) chatDb.collection('dasawisma_tagihan').doc(t.id).update({ status: 'rejected' });
+    showToast('Pengajuan ditolak');
+    setKlasifikasiModal(null);
+  };
+
+  const confirmDeleteAction = () => {
+    const type = confirmDelete.type, id = confirmDelete.id, label = confirmDelete.label;
+    if (type === 'warga') setWargaList(function (prev) { return prev.filter(function (w) { return w.id !== id; }); });
+    if (type === 'kegiatan') setKegiatanList(function (prev) { return prev.filter(function (k) { return k.id !== id; }); });
+    if (type === 'keuangan') setKeuanganList(function (prev) { return prev.filter(function (k) { return k.id !== id; }); });
+    if (type === 'notifikasi') { if (chatDb) chatDb.collection('dasawisma_notifikasi').doc(id).delete(); }
+    setConfirmDelete(null);
+    showToast(label + ' berhasil dihapus');
+  };
+
+  const handleFileChange = (e, type) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function (evt) {
+      try {
+        const data = new Uint8Array(evt.target.result);
+        const wb = XLSX.read(data, { type: 'array' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const json = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+        if (json.length === 0) { showToast('File kosong atau tidak terbaca', 'error'); return; }
+
+        if (type === 'warga') {
+          const mapped = json.map(function (row) {
+            return {
+              id: nextId(),
+              namaKK: String(getField(row, 'Nama Kepala Keluarga')).trim(),
+              rt: String(getField(row, 'RT') || ''), alamat: String(getField(row, 'Alamat') || ''),
+              anggota: [],
+              balita: Number(getField(row, 'Balita')) || 0, pus: Number(getField(row, 'PUS')) || 0, wus: Number(getField(row, 'WUS')) || 0,
+              bumil: Number(getField(row, 'Ibu Hamil')) || 0, busui: Number(getField(row, 'Ibu Menyusui')) || 0, lansia: Number(getField(row, 'Lansia')) || 0,
+              tigaButa: Number(getField(row, '3 Buta')) || 0, berkebutuhan: Number(getField(row, 'Berkebutuhan Khusus')) || 0,
+              kriteriaRumah: getField(row, 'Kriteria Rumah') || 'Sehat', jamban: getField(row, 'Jamban') || 'Ya',
+              sumberAir: getField(row, 'Sumber Air') || 'PDAM', sampah: getField(row, 'Tempat Sampah') || 'Ya', limbah: getField(row, 'Saluran Limbah') || 'Ya',
+              stikerP4K: getField(row, 'Stiker P4K') || 'Tidak', makanan: getField(row, 'Makanan Pokok') || 'Beras',
+              up2k: getField(row, 'UP2K') || 'Tidak', jenisUsaha: getField(row, 'Jenis Usaha') || ''
+            };
+          }).filter(function (w) { return w.namaKK; });
+          if (mapped.length === 0) { showToast('Tidak ada data terbaca. Cek kolom "Nama Kepala Keluarga" di file.', 'error'); return; }
+          setWargaList(function (prev) { return prev.concat(mapped); });
+          showToast(mapped.length + ' data warga berhasil diimport');
+        } else if (type === 'keuangan') {
+          const mapped = json.map(function (row) {
+            return {
+              id: nextId(), tanggal: parseExcelDate(getField(row, 'Tanggal')),
+              jenis: getField(row, 'Jenis') === 'Keluar' ? 'Keluar' : 'Masuk',
+              kategori: String(getField(row, 'Kategori') || ''), nominal: Number(getField(row, 'Nominal')) || 0,
+              keterangan: String(getField(row, 'Keterangan') || ''), attachment: null
+            };
+          }).filter(function (k) { return k.kategori; });
+          if (mapped.length === 0) { showToast('Tidak ada data terbaca. Cek kolom "Kategori" di file.', 'error'); return; }
+          setKeuanganList(function (prev) { return prev.concat(mapped); });
+          showToast(mapped.length + ' transaksi berhasil diimport');
+        } else if (type === 'kegiatan') {
+          const mapped = json.map(function (row) {
+            return {
+              id: nextId(), nama: String(getField(row, 'Nama Kegiatan') || ''), tanggal: parseExcelDate(getField(row, 'Tanggal')),
+              pokja: getField(row, 'Pokja') || 'Umum', peserta: Number(getField(row, 'Jumlah Peserta')) || 0,
+              tempat: String(getField(row, 'Tempat') || ''), keterangan: String(getField(row, 'Keterangan') || '')
+            };
+          }).filter(function (k) { return k.nama; });
+          if (mapped.length === 0) { showToast('Tidak ada data terbaca. Cek kolom "Nama Kegiatan" di file.', 'error'); return; }
+          setKegiatanList(function (prev) { return prev.concat(mapped); });
+          showToast(mapped.length + ' kegiatan berhasil diimport');
+        }
+      } catch (err) {
+        showToast('Gagal membaca file. Pastikan format .xlsx/.xls/.csv valid.', 'error');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    e.target.value = '';
+  };
+
+  const renderWargaFormFields = () => (
+    <>
+      <div>
+        <label className="text-xs font-medium text-slate-500">Nama Kepala Keluarga</label>
+        <input value={wargaForm.namaKK} onChange={function (e) { setWargaForm(Object.assign({}, wargaForm, { namaKK: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs font-medium text-slate-500">RT</label>
+          <input value={wargaForm.rt} onChange={function (e) { setWargaForm(Object.assign({}, wargaForm, { rt: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+        </div>
+        <div>
+          <label className="text-xs font-medium text-slate-500">Alamat</label>
+          <input value={wargaForm.alamat} onChange={function (e) { setWargaForm(Object.assign({}, wargaForm, { alamat: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+        </div>
+      </div>
+
+      <div>
+        <div className="flex justify-between items-center mb-2">
+          <label className="text-xs font-medium text-slate-500">Anggota Keluarga ({wargaForm.anggota.length})</label>
+          <button onClick={addMemberRow} className="text-xs text-rose-600 font-medium flex items-center gap-1"><IconPlus className="w-3 h-3" />Tambah</button>
+        </div>
+        <div className="space-y-2">
+          {wargaForm.anggota.map(function (m, idx) {
+            return (
+              <div key={m.id} className="bg-slate-50 rounded-xl p-3 space-y-2">
+                <div className="flex gap-2">
+                  <input value={m.nama} onChange={function (e) { updateMemberRow(idx, 'nama', e.target.value); }} placeholder="Nama" className="flex-1 px-2.5 py-2 border border-slate-200 rounded-lg text-xs bg-white" />
+                  <select value={m.jk} onChange={function (e) { updateMemberRow(idx, 'jk', e.target.value); }} className="w-16 px-1 py-2 border border-slate-200 rounded-lg text-xs bg-white">
+                    <option value="L">L</option><option value="P">P</option>
+                  </select>
+                  <button onClick={function () { removeMemberRow(idx); }} className="w-8 h-8 shrink-0 flex items-center justify-center text-red-400"><IconX className="w-4 h-4" /></button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <input type="date" value={m.tglLahir} onChange={function (e) { updateMemberRow(idx, 'tglLahir', e.target.value); }} className="px-2.5 py-2 border border-slate-200 rounded-lg text-xs bg-white" />
+                  <select value={m.statusKawin} onChange={function (e) { updateMemberRow(idx, 'statusKawin', e.target.value); }} className="px-2.5 py-2 border border-slate-200 rounded-lg text-xs bg-white">
+                    <option>Belum Kawin</option><option>Kawin</option><option>Cerai</option>
+                  </select>
+                  <input value={m.statusKeluarga} onChange={function (e) { updateMemberRow(idx, 'statusKeluarga', e.target.value); }} placeholder="Status (Istri/Anak..)" className="px-2.5 py-2 border border-slate-200 rounded-lg text-xs bg-white" />
+                  <input value={m.pendidikan} onChange={function (e) { updateMemberRow(idx, 'pendidikan', e.target.value); }} placeholder="Pendidikan" className="px-2.5 py-2 border border-slate-200 rounded-lg text-xs bg-white" />
+                  <input value={m.pekerjaan} onChange={function (e) { updateMemberRow(idx, 'pekerjaan', e.target.value); }} placeholder="Pekerjaan" className="col-span-2 px-2.5 py-2 border border-slate-200 rounded-lg text-xs bg-white" />
+                </div>
+              </div>
+            );
+          })}
+          {wargaForm.anggota.length === 0 && <p className="text-xs text-slate-400 text-center py-3">Belum ada anggota, klik Tambah</p>}
+        </div>
+      </div>
+
+      <div>
+        <label className="text-xs font-medium text-slate-500 mb-2 block">Data Kesehatan & Kependudukan</label>
+        <div className="grid grid-cols-4 gap-2">
+          {[['balita', 'Balita'], ['pus', 'PUS'], ['wus', 'WUS'], ['bumil', 'Bumil'], ['busui', 'Busui'], ['lansia', 'Lansia'], ['tigaButa', '3 Buta'], ['berkebutuhan', 'Disabilitas']].map(function (pair) {
+            const key = pair[0], label = pair[1];
+            return (
+              <div key={key}>
+                <input type="number" min="0" value={wargaForm[key]} onChange={function (e) { const v = {}; v[key] = Number(e.target.value) || 0; setWargaForm(Object.assign({}, wargaForm, v)); }} className="w-full px-2 py-2 border border-slate-200 rounded-lg text-xs text-center" />
+                <p className="text-xs text-slate-400 text-center mt-0.5">{label}</p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs font-medium text-slate-500">Kriteria Rumah</label>
+          <select value={wargaForm.kriteriaRumah} onChange={function (e) { setWargaForm(Object.assign({}, wargaForm, { kriteriaRumah: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm">
+            <option>Sehat</option><option>Tidak Sehat</option>
+          </select>
+        </div>
+        <div>
+          <label className="text-xs font-medium text-slate-500">Jamban Keluarga</label>
+          <select value={wargaForm.jamban} onChange={function (e) { setWargaForm(Object.assign({}, wargaForm, { jamban: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm">
+            <option>Ya</option><option>Tidak</option>
+          </select>
+        </div>
+        <div>
+          <label className="text-xs font-medium text-slate-500">Sumber Air</label>
+          <select value={wargaForm.sumberAir} onChange={function (e) { setWargaForm(Object.assign({}, wargaForm, { sumberAir: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm">
+            {SUMBER_AIR_LIST.map(function (s) { return <option key={s}>{s}</option>; })}
+          </select>
+        </div>
+        <div>
+          <label className="text-xs font-medium text-slate-500">Tempat Sampah</label>
+          <select value={wargaForm.sampah} onChange={function (e) { setWargaForm(Object.assign({}, wargaForm, { sampah: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm">
+            <option>Ya</option><option>Tidak</option>
+          </select>
+        </div>
+        <div>
+          <label className="text-xs font-medium text-slate-500">Saluran Limbah</label>
+          <select value={wargaForm.limbah} onChange={function (e) { setWargaForm(Object.assign({}, wargaForm, { limbah: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm">
+            <option>Ya</option><option>Tidak</option>
+          </select>
+        </div>
+        <div>
+          <label className="text-xs font-medium text-slate-500">Stiker P4K</label>
+          <select value={wargaForm.stikerP4K} onChange={function (e) { setWargaForm(Object.assign({}, wargaForm, { stikerP4K: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm">
+            <option>Ya</option><option>Tidak</option>
+          </select>
+        </div>
+        <div>
+          <label className="text-xs font-medium text-slate-500">Makanan Pokok</label>
+          <select value={wargaForm.makanan} onChange={function (e) { setWargaForm(Object.assign({}, wargaForm, { makanan: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm">
+            <option>Beras</option><option>Non Beras</option>
+          </select>
+        </div>
+        <div>
+          <label className="text-xs font-medium text-slate-500">UP2K</label>
+          <select value={wargaForm.up2k} onChange={function (e) { setWargaForm(Object.assign({}, wargaForm, { up2k: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm">
+            <option>Ya</option><option>Tidak</option>
+          </select>
+        </div>
+      </div>
+      {wargaForm.up2k === 'Ya' && (
+        <div>
+          <label className="text-xs font-medium text-slate-500">Jenis Usaha</label>
+          <input value={wargaForm.jenisUsaha} onChange={function (e) { setWargaForm(Object.assign({}, wargaForm, { jenisUsaha: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+        </div>
+      )}
+    </>
+  );
+
+  const renderWargaDetail = (w) => (
+    <>
+      <div className="grid grid-cols-2 gap-3 text-sm">
+        <div><p className="text-xs text-slate-400">RT</p><p className="font-medium text-slate-700">{w.rt}</p></div>
+        <div><p className="text-xs text-slate-400">Alamat</p><p className="font-medium text-slate-700">{w.alamat}</p></div>
+        <div><p className="text-xs text-slate-400">Kriteria Rumah</p><p className="font-medium text-slate-700">{w.kriteriaRumah}</p></div>
+        <div><p className="text-xs text-slate-400">Jamban</p><p className="font-medium text-slate-700">{w.jamban}</p></div>
+        <div><p className="text-xs text-slate-400">Sumber Air</p><p className="font-medium text-slate-700">{w.sumberAir}</p></div>
+        <div><p className="text-xs text-slate-400">Makanan Pokok</p><p className="font-medium text-slate-700">{w.makanan}</p></div>
+        <div><p className="text-xs text-slate-400">Tempat Sampah</p><p className="font-medium text-slate-700">{w.sampah}</p></div>
+        <div><p className="text-xs text-slate-400">Saluran Limbah</p><p className="font-medium text-slate-700">{w.limbah}</p></div>
+        <div><p className="text-xs text-slate-400">Stiker P4K</p><p className="font-medium text-slate-700">{w.stikerP4K}</p></div>
+        <div><p className="text-xs text-slate-400">UP2K</p><p className="font-medium text-slate-700">{w.up2k}{w.jenisUsaha ? ' (' + w.jenisUsaha + ')' : ''}</p></div>
+      </div>
+      <div className="grid grid-cols-4 gap-2 text-center bg-slate-50 rounded-xl p-3">
+        {[['Balita', w.balita], ['PUS', w.pus], ['WUS', w.wus], ['Bumil', w.bumil], ['Busui', w.busui], ['Lansia', w.lansia], ['3 Buta', w.tigaButa], ['Disabilitas', w.berkebutuhan]].map(function (pair) {
+          return <div key={pair[0]}><p className="text-sm font-bold text-slate-800">{pair[1]}</p><p className="text-xs text-slate-500">{pair[0]}</p></div>;
+        })}
+      </div>
+      <div>
+        <p className="text-xs font-semibold text-slate-500 mb-2">ANGGOTA KELUARGA ({w.anggota.length})</p>
+        <div className="space-y-2">
+          {w.anggota.length === 0 && <p className="text-xs text-slate-400">Belum ada data anggota</p>}
+          {w.anggota.map(function (m) {
+            return (
+              <div key={m.id} className="bg-slate-50 rounded-xl p-3">
+                <p className="text-sm font-medium text-slate-800">{m.nama} <span className="text-xs text-slate-400 font-normal">({m.jk})</span></p>
+                <p className="text-xs text-slate-500">{m.statusKeluarga || '-'} · {m.pendidikan || '-'} · {m.pekerjaan || '-'}</p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </>
+  );
+
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-rose-600 via-rose-500 to-pink-600 flex items-center justify-center p-6">
+        <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl p-8">
+          <div className="text-center mb-6">
+            <div className="w-16 h-16 bg-rose-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <IconUsers className="w-8 h-8 text-rose-600" />
+            </div>
+            <h1 className="text-xl font-bold text-slate-800">Dasawisma Digital</h1>
+            <p className="text-sm text-slate-500 mt-1">Aplikasi Pencatatan 8 Buku Dasawisma RT</p>
+          </div>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs font-medium text-slate-500">Username</label>
+              <input value={loginForm.username} onChange={function (e) { setLoginForm(Object.assign({}, loginForm, { username: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-slate-500">Password</label>
+              <input type="password" value={loginForm.password} onChange={function (e) { setLoginForm(Object.assign({}, loginForm, { password: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+            </div>
+            <button onClick={handleLogin} className="w-full bg-rose-600 text-white font-semibold py-3 rounded-xl mt-2 active:scale-95 transition-transform">Masuk</button>
+            <div className="bg-slate-50 rounded-xl p-3 mt-3">
+              <p className="text-xs text-slate-500 font-medium mb-1">Login pertama:</p>
+              <p className="text-xs text-slate-400">pengurus / pengurus123</p>
+              <p className="text-xs text-slate-400 mt-1">Akun anggota dibuat oleh pengurus (menu Pengaturan setelah login).</p>
+            </div>
+          </div>
+          {toast && (
+            <div className={'mt-3 px-3 py-2 rounded-xl text-xs font-medium text-white ' + (toast.type === 'error' ? 'bg-red-600' : 'bg-emerald-600')}>{toast.message}</div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex justify-center">
+      <div className="w-full max-w-md bg-slate-50 min-h-screen relative">
+
+        <div className="sticky top-0 z-20 bg-white border-b border-slate-100 px-4 py-3 flex items-center justify-between">
+          <div>
+            <h1 className="font-bold text-slate-800 text-base">{pageTitles[page]}</h1>
+            <span className={'text-xs font-medium px-2 py-0.5 rounded-full inline-block mt-0.5 ' + (role === 'pengurus' ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600')}>
+              {currentUser.namaLengkap} · {role === 'pengurus' ? 'Pengurus' : 'Anggota'}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={function () { setPage('notifikasi'); }} className="w-9 h-9 flex items-center justify-center rounded-full bg-slate-50 text-slate-500">
+              <IconBell className="w-4 h-4" />
+            </button>
+            <button onClick={openPengaturan} className="w-9 h-9 flex items-center justify-center rounded-full bg-slate-50 text-slate-500">
+              <IconSettings className="w-4 h-4" />
+            </button>
+            <button onClick={handleLogout} className="w-9 h-9 flex items-center justify-center rounded-full bg-slate-50 text-slate-500">
+              <IconLogOut className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {toast && (
+          <div className={'fixed top-3 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl text-xs font-medium text-white shadow-lg flex items-center gap-2 ' + (toast.type === 'error' ? 'bg-red-600' : 'bg-slate-800')}>
+            <IconCheckCircle className="w-3.5 h-3.5" />{toast.message}
+          </div>
+        )}
+
+        <main className={'px-4 pt-4 space-y-4 ' + (page === 'chat' ? 'pb-40' : 'pb-24')}>
+
+          {page === 'dashboard' && (
+            <>
+              <div className="bg-gradient-to-br from-rose-600 to-pink-600 rounded-2xl p-5 text-white">
+                <p className="text-rose-100 text-sm">Selamat datang,</p>
+                <p className="text-lg font-bold">{currentUser.namaLengkap}</p>
+                <p className="text-rose-100 text-xs mt-1">
+                  {wargaList[0] ? 'RT ' + wargaList[0].rt : ''} · {now.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                {dashboardStatCards.map(function (c, i) {
+                  const IconComp = c.icon;
+                  return (
+                    <button key={i} onClick={function () { setPage(c.page); }} className="bg-white rounded-2xl p-4 border border-slate-100 text-left active:bg-slate-50">
+                      <div className={'w-9 h-9 rounded-xl ' + c.bg + ' flex items-center justify-center mb-2'}>
+                        <IconComp className={'w-4 h-4 ' + c.text} />
+                      </div>
+                      <p className="text-lg font-bold text-slate-800">{c.value}</p>
+                      <p className="text-xs text-slate-500">{c.label}</p>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {role === 'pengurus' && (
+                <div className="bg-white rounded-2xl p-4 border border-slate-100">
+                  <p className="text-sm font-semibold text-slate-700 mb-3">Data Kesehatan & Kependudukan</p>
+                  <div className="grid grid-cols-3 gap-3">
+                    {[['Balita', totalBalita], ['PUS', totalPus], ['WUS', totalWus], ['Ibu Hamil', totalBumil], ['Ibu Menyusui', totalBusui], ['Lansia', totalLansia]].map(function (pair) {
+                      return (
+                        <div key={pair[0]} className="text-center">
+                          <p className="text-base font-bold text-slate-800">{pair[1]}</p>
+                          <p className="text-xs text-slate-500">{pair[0]}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div className="bg-white rounded-2xl p-4 border border-slate-100">
+                <div className="flex justify-between items-center mb-3">
+                  <p className="text-sm font-semibold text-slate-700">Kegiatan Bulan Ini</p>
+                  <button onClick={function () { setPage('kegiatan'); }} className="text-xs text-rose-600 font-medium flex items-center">
+                    Lihat semua <IconChevronRight className="w-3 h-3" />
+                  </button>
+                </div>
+                {kegiatanBulanIniList.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-4">Belum ada kegiatan bulan ini</p>
+                ) : kegiatanBulanIniList.map(function (k) {
+                  return (
+                    <div key={k.id} className="flex items-center gap-3 py-2 border-b border-slate-50 last:border-0">
+                      <div className="w-10 h-10 rounded-xl bg-amber-50 flex flex-col items-center justify-center shrink-0">
+                        <span className="text-xs font-bold text-amber-600 leading-none">{new Date(k.tanggal).getDate()}</span>
+                        <span className="text-xs text-amber-500 leading-none">{new Date(k.tanggal).toLocaleDateString('id-ID', { month: 'short' })}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-800 truncate">{k.nama}</p>
+                        <p className="text-xs text-slate-400 truncate">{k.sub}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {page === 'notifikasi' && (
+            <>
+              {notifPermission !== 'granted' && notifPermission !== 'unsupported' && (
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                  <p className="text-xs text-blue-700 mb-2">Aktifkan notifikasi HP supaya langsung dapat banner saat ada info baru (berlaku selama aplikasi sedang dibuka).</p>
+                  <button onClick={requestNotifPermission} className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-full font-medium">Aktifkan Notifikasi</button>
+                </div>
+              )}
+              {role === 'pengurus' && (
+                <button onClick={openNotif} className="w-full bg-rose-600 text-white font-semibold py-2.5 rounded-xl flex items-center justify-center gap-1.5 text-sm">
+                  <IconPlus className="w-4 h-4" />Buat Notifikasi
+                </button>
+              )}
+              <div className="space-y-2.5">
+                {visibleNotifikasi.length === 0 ? (
+                  <div className="text-center py-10 text-slate-400 text-sm">Belum ada notifikasi</div>
+                ) : visibleNotifikasi.map(function (n) {
+                  const clickable = role === 'pengurus' && n.kategori === 'Tagihan' && n.tagihanRef;
+                  return (
+                    <div key={n.id} onClick={function () {
+                      if (!clickable) return;
+                      const t = tagihanList.find(function (x) { return x.id === n.tagihanRef; });
+                      if (t && t.status === 'pending') openKlasifikasi(t);
+                      else showToast('Pengajuan ini sudah diproses', 'error');
+                    }} className={'bg-white rounded-2xl p-4 border border-slate-100 ' + (clickable ? 'cursor-pointer active:bg-slate-50' : '')}>
+                      <div className="flex justify-between items-start gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className={'text-xs px-2 py-0.5 rounded-full font-medium ' + (n.kategori === 'Tagihan' ? 'bg-amber-50 text-amber-600' : n.kategori === 'Kegiatan' ? 'bg-blue-50 text-blue-600' : 'bg-rose-50 text-rose-600')}>{n.kategori}</span>
+                            {n.berulang && <span className="text-xs text-slate-400">berulang</span>}
+                          </div>
+                          <p className="text-sm font-medium text-slate-800 mt-1">{n.judul}</p>
+                          {n.pesan && <p className="text-xs text-slate-500 mt-0.5">{n.pesan}</p>}
+                          <p className="text-xs text-slate-400 mt-1">{n.tanggal ? formatTanggal(n.tanggal) : ''} · oleh {n.createdBy}</p>
+                        </div>
+                        {role === 'pengurus' && (
+                          <button onClick={function (e) { e.stopPropagation(); setConfirmDelete({ type: 'notifikasi', id: n.id, label: n.judul }); }}><IconTrash className="w-3.5 h-3.5 text-red-400" /></button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {page === 'warga' && role === 'pengurus' && (
+            <>
+              <div className="flex gap-2">
+                <div className="flex-1 relative">
+                  <IconSearch className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input value={searchWarga} onChange={function (e) { setSearchWarga(e.target.value); }} placeholder="Cari nama kepala keluarga..." className="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-200" />
+                </div>
+                <button onClick={openAddWarga} className="w-11 h-11 shrink-0 bg-rose-600 text-white rounded-xl flex items-center justify-center">
+                  <IconPlus className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={exportWarga} className="flex-1 flex items-center justify-center gap-1.5 bg-white border border-slate-200 rounded-xl py-2 text-xs font-medium text-slate-600">
+                  <IconDownload className="w-3.5 h-3.5" /> Export Excel
+                </button>
+                <label className="flex-1 flex items-center justify-center gap-1.5 bg-white border border-slate-200 rounded-xl py-2 text-xs font-medium text-slate-600 cursor-pointer">
+                  <IconUpload className="w-3.5 h-3.5" /> Import Excel
+                  <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={function (e) { handleFileChange(e, 'warga'); }} />
+                </label>
+              </div>
+              <button onClick={function () { downloadTemplate(WARGA_HEADERS, 'Template_Data_Warga.xlsx', 'Template'); }} className="text-xs text-slate-400 underline w-full text-center">Unduh template Excel</button>
+              <p className="text-xs text-slate-400">{filteredWarga.length} keluarga terdaftar</p>
+              <div className="space-y-2.5">
+                {filteredWarga.length === 0 ? (
+                  <div className="text-center py-10 text-slate-400 text-sm">Belum ada data warga. Import lewat Excel atau tambah manual.</div>
+                ) : filteredWarga.map(function (w) {
+                  return (
+                    <div key={w.id} onClick={function () { setViewingWarga(w); }} className="bg-white rounded-2xl p-4 border border-slate-100 active:bg-slate-50 cursor-pointer">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-slate-800 text-sm truncate">{w.namaKK}</p>
+                          <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5"><IconMapPin className="w-3 h-3" /> RT {w.rt} · {w.alamat}</p>
+                          <div className="flex gap-1.5 mt-2 flex-wrap">
+                            <span className="text-xs px-2 py-0.5 bg-slate-50 rounded-full text-slate-500">{w.anggota.length} jiwa</span>
+                            <span className={'text-xs px-2 py-0.5 rounded-full ' + (w.kriteriaRumah === 'Sehat' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500')}>{w.kriteriaRumah}</span>
+                            {w.bumil > 0 && <span className="text-xs px-2 py-0.5 bg-pink-50 text-pink-600 rounded-full">Bumil</span>}
+                          </div>
+                        </div>
+                        <IconChevronRight className="w-4 h-4 text-slate-300 shrink-0 mt-1" />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {page === 'warga' && role === 'anggota' && (
+            <>
+              {!myWarga ? (
+                <div className="text-center py-10 text-slate-400 text-sm">Data keluarga tidak ditemukan. Hubungi pengurus Dasawisma.</div>
+              ) : (
+                <div className="bg-white rounded-2xl p-4 border border-slate-100 space-y-4">
+                  <div>
+                    <p className="font-bold text-slate-800">{myWarga.namaKK}</p>
+                    <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5"><IconMapPin className="w-3 h-3" /> RT {myWarga.rt} · {myWarga.alamat}</p>
+                  </div>
+                  {renderWargaDetail(myWarga)}
+                  <button onClick={openPengaturan} className="w-full bg-rose-50 text-rose-600 font-medium py-2.5 rounded-xl text-sm flex items-center justify-center gap-1.5"><IconPencil className="w-3.5 h-3.5" />Ubah Data di Pengaturan</button>
+                </div>
+              )}
+            </>
+          )}
+
+          {page === 'kegiatan' && (
+            <>
+              {role === 'pengurus' && (
+                <button onClick={openAddKegiatan} className="w-full bg-rose-600 text-white font-semibold py-2.5 rounded-xl flex items-center justify-center gap-1.5 text-sm">
+                  <IconPlus className="w-4 h-4" />Tambah Kegiatan
+                </button>
+              )}
+              {role === 'pengurus' && (
+                <>
+                  <div className="flex gap-2">
+                    <button onClick={exportKegiatan} className="flex-1 flex items-center justify-center gap-1.5 bg-white border border-slate-200 rounded-xl py-2 text-xs font-medium text-slate-600">
+                      <IconDownload className="w-3.5 h-3.5" /> Export Excel
+                    </button>
+                    <label className="flex-1 flex items-center justify-center gap-1.5 bg-white border border-slate-200 rounded-xl py-2 text-xs font-medium text-slate-600 cursor-pointer">
+                      <IconUpload className="w-3.5 h-3.5" /> Import Excel
+                      <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={function (e) { handleFileChange(e, 'kegiatan'); }} />
+                    </label>
+                  </div>
+                  <button onClick={function () { downloadTemplate(KEGIATAN_HEADERS, 'Template_Data_Kegiatan.xlsx', 'Template'); }} className="text-xs text-slate-400 underline w-full text-center">Unduh template Excel</button>
+                </>
+              )}
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {['Semua'].concat(POKJA_LIST).map(function (p) {
+                  return <button key={p} onClick={function () { setFilterPokja(p); }} className={'px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap ' + (filterPokja === p ? 'bg-rose-600 text-white' : 'bg-white border border-slate-200 text-slate-500')}>{p}</button>;
+                })}
+              </div>
+              <div className="space-y-2.5">
+                {sortedKegiatan.length === 0 ? (
+                  <div className="text-center py-10 text-slate-400 text-sm">Belum ada kegiatan</div>
+                ) : sortedKegiatan.map(function (k) {
+                  return (
+                    <div key={k.id} className="bg-white rounded-2xl p-4 border border-slate-100">
+                      <div className="flex gap-3">
+                        <div className="w-11 h-11 rounded-xl bg-amber-50 flex flex-col items-center justify-center shrink-0">
+                          <span className="text-xs font-bold text-amber-600 leading-none">{k.tanggal ? new Date(k.tanggal).getDate() : '-'}</span>
+                          <span className="text-xs text-amber-500 leading-none mt-0.5">{k.tanggal ? new Date(k.tanggal).toLocaleDateString('id-ID', { month: 'short' }) : ''}</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-slate-800 text-sm">{k.nama}</p>
+                          <p className="text-xs text-slate-400 mt-0.5">{k.pokja} · {k.tempat || '-'} · {k.peserta} peserta</p>
+                          {k.keterangan && <p className="text-xs text-slate-500 mt-1">{k.keterangan}</p>}
+                        </div>
+                      </div>
+                      {role === 'pengurus' && (
+                        <div className="flex gap-2 mt-3 pt-3 border-t border-slate-50">
+                          <button onClick={function () { openEditKegiatan(k); }} className="flex-1 bg-slate-50 text-slate-600 rounded-lg py-1.5 text-xs font-medium flex items-center justify-center gap-1"><IconPencil className="w-3 h-3" />Edit</button>
+                          <button onClick={function () { setConfirmDelete({ type: 'kegiatan', id: k.id, label: k.nama }); }} className="flex-1 bg-red-50 text-red-500 rounded-lg py-1.5 text-xs font-medium flex items-center justify-center gap-1"><IconTrash className="w-3 h-3" />Hapus</button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {page === 'keuangan' && (
+            <>
+              <div className="bg-slate-800 rounded-2xl p-4 text-white flex justify-between items-center">
+                <span className="text-sm text-slate-300">Saldo Kas Saat Ini</span>
+                <span className="text-lg font-bold">{formatRupiah(saldoKas)}</span>
+              </div>
+
+              <div className="bg-white rounded-2xl p-4 border border-slate-100">
+                <p className="text-sm font-semibold text-slate-700 mb-2">Tagihan Periode Ini · {now.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}</p>
+                {role === 'anggota' ? (
+                  myTagihanStatus === 'approved' ? (
+                    <div className="flex items-center gap-2 bg-emerald-50 rounded-xl p-3">
+                      <IconCheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
+                      <p className="text-xs text-emerald-700 font-medium">Sudah Bayar untuk periode ini</p>
+                    </div>
+                  ) : myTagihanStatus === 'pending' ? (
+                    <div className="flex items-center gap-2 bg-amber-50 rounded-xl p-3">
+                      <IconAlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+                      <p className="text-xs text-amber-700 font-medium">Bukti pembayaran menunggu persetujuan pengurus</p>
+                    </div>
+                  ) : (
+                    <button onClick={openPengajuan} className="w-full bg-rose-600 text-white font-semibold py-2.5 rounded-xl text-sm flex items-center justify-center gap-1.5">
+                      <IconUpload className="w-4 h-4" />Ajukan Pembayaran / Upload Bukti
+                    </button>
+                  )
+                ) : (
+                  pendingTagihan.length === 0 ? (
+                    <p className="text-xs text-slate-400 text-center py-3">Tidak ada pengajuan baru</p>
+                  ) : pendingTagihan.map(function (t) {
+                    return (
+                      <div key={t.id} className="flex items-center gap-3 py-2.5 border-b border-slate-50 last:border-0">
+                        {t.buktiDataUrl && <img src={t.buktiDataUrl} className="w-12 h-12 rounded-lg object-cover shrink-0" alt="bukti" />}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-slate-800 truncate">{t.namaPengaju}</p>
+                          <p className="text-xs text-slate-400">{formatTanggal(t.tanggal)} · {formatRupiah(t.nominal)}</p>
+                        </div>
+                        <button onClick={function () { openKlasifikasi(t); }} className="text-xs bg-rose-600 text-white px-3 py-1.5 rounded-full font-medium shrink-0">Proses</button>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              <div className="flex items-center justify-between bg-white rounded-2xl border border-slate-100 px-2 py-2">
+                <button onClick={prevBulan} className="w-9 h-9 flex items-center justify-center rounded-full text-slate-500 active:bg-slate-50">
+                  <IconChevronLeft className="w-4 h-4" />
+                </button>
+                <p className="text-sm font-semibold text-slate-700 capitalize">{monthLabel}</p>
+                <button onClick={nextBulan} className="w-9 h-9 flex items-center justify-center rounded-full text-slate-500 active:bg-slate-50">
+                  <IconChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-emerald-50 rounded-2xl p-4">
+                  <div className="flex items-center gap-1.5 text-emerald-600"><IconArrowUpCircle className="w-4 h-4" /><span className="text-xs font-medium">Pemasukan</span></div>
+                  <p className="text-base font-bold text-emerald-700 mt-1">{formatRupiah(masukBulanIni)}</p>
+                </div>
+                <div className="bg-red-50 rounded-2xl p-4">
+                  <div className="flex items-center gap-1.5 text-red-500"><IconArrowDownCircle className="w-4 h-4" /><span className="text-xs font-medium">Pengeluaran</span></div>
+                  <p className="text-base font-bold text-red-600 mt-1">{formatRupiah(keluarBulanIni)}</p>
+                </div>
+              </div>
+
+              {role === 'pengurus' && (
+                <>
+                  <button onClick={openAddKeuangan} className="w-full bg-rose-600 text-white font-semibold py-2.5 rounded-xl flex items-center justify-center gap-1.5 text-sm">
+                    <IconPlus className="w-4 h-4" />Tambah Transaksi
+                  </button>
+                  <button onClick={openIuran} className="w-full bg-emerald-600 text-white font-semibold py-2.5 rounded-xl flex items-center justify-center gap-1.5 text-sm">
+                    <IconPlus className="w-4 h-4" />Catat Iuran Rutin (PKK + Posyandu + Dawis)
+                  </button>
+                  <div className="flex gap-2">
+                    <button onClick={exportKeuangan} className="flex-1 flex items-center justify-center gap-1.5 bg-white border border-slate-200 rounded-xl py-2 text-xs font-medium text-slate-600">
+                      <IconDownload className="w-3.5 h-3.5" />Export Excel
+                    </button>
+                    <label className="flex-1 flex items-center justify-center gap-1.5 bg-white border border-slate-200 rounded-xl py-2 text-xs font-medium text-slate-600 cursor-pointer">
+                      <IconUpload className="w-3.5 h-3.5" />Import Excel
+                      <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={function (e) { handleFileChange(e, 'keuangan'); }} />
+                    </label>
+                  </div>
+                  <button onClick={function () { downloadTemplate(KEUANGAN_HEADERS, 'Template_Data_Keuangan.xlsx', 'Template'); }} className="text-xs text-slate-400 underline w-full text-center">Unduh template Excel</button>
+                </>
+              )}
+
+              <p className="text-xs font-semibold text-slate-500 mt-2">Laporan Keuangan Bulanan · {monthLabel}</p>
+              <div className="space-y-2">
+                {monthlyReport.length === 0 ? (
+                  <div className="text-center py-10 text-slate-400 text-sm">Belum ada transaksi bulan ini</div>
+                ) : monthlyReport.map(function (r) {
+                  const isOpen = expandedCategory === r.key;
+                  return (
+                    <div key={r.key} className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+                      <button onClick={function () { setExpandedCategory(isOpen ? null : r.key); }} className="w-full flex items-center justify-between p-3.5">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className={'w-8 h-8 rounded-full flex items-center justify-center shrink-0 ' + (r.jenis === 'Masuk' ? 'bg-emerald-50' : 'bg-red-50')}>
+                            {r.jenis === 'Masuk' ? <IconArrowUpCircle className="w-4 h-4 text-emerald-600" /> : <IconArrowDownCircle className="w-4 h-4 text-red-500" />}
+                          </div>
+                          <div className="text-left min-w-0">
+                            <p className="text-sm font-medium text-slate-800 truncate">{r.kategori}</p>
+                            <p className="text-xs text-slate-400">{r.items.length} transaksi</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className={'text-sm font-bold ' + (r.jenis === 'Masuk' ? 'text-emerald-600' : 'text-red-500')}>{r.jenis === 'Masuk' ? '+' : '-'}{formatRupiah(r.total)}</span>
+                          <IconChevronRight className={'w-4 h-4 text-slate-300 ' + (isOpen ? 'rotate-90' : '')} />
+                        </div>
+                      </button>
+                      {isOpen && (
+                        <div className="border-t border-slate-50 px-3.5 pb-3.5 pt-2 space-y-2">
+                          {r.items.map(function (k) {
+                            return (
+                              <div key={k.id} className="bg-slate-50 rounded-xl px-3 py-2.5">
+                                <div className="flex items-start justify-between gap-2">
+                                  <p className="text-xs text-slate-600 flex-1">{formatTanggal(k.tanggal)}{k.keterangan ? ' · ' + k.keterangan : ''}</p>
+                                  {role === 'pengurus' && (
+                                    <div className="flex gap-2 shrink-0">
+                                      <button onClick={function () { openEditKeuangan(k); }}><IconPencil className="w-3 h-3 text-slate-400" /></button>
+                                      <button onClick={function () { setConfirmDelete({ type: 'keuangan', id: k.id, label: k.kategori }); }}><IconTrash className="w-3 h-3 text-red-400" /></button>
+                                    </div>
+                                  )}
+                                </div>
+                                {k.attachment && (
+                                  <a href={k.attachment.dataUrl} download={k.attachment.name} className="mt-1.5 flex items-center gap-1 text-xs text-rose-600 w-fit">
+                                    <IconPaperclip className="w-3 h-3" />Lihat bukti
+                                  </a>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {page === 'pengaturan' && (
+            <>
+              <div className="bg-white rounded-2xl p-4 border border-slate-100 space-y-3">
+                <p className="text-sm font-semibold text-slate-700">Akun Saya</p>
+                <div>
+                  <label className="text-xs font-medium text-slate-500">Nama Lengkap</label>
+                  <input value={akunForm.namaLengkap} onChange={function (e) { setAkunForm(Object.assign({}, akunForm, { namaLengkap: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-500">Username</label>
+                  <input value={akunForm.username} onChange={function (e) { setAkunForm(Object.assign({}, akunForm, { username: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-500">Password Baru (kosongkan jika tidak diubah)</label>
+                  <input type="password" value={akunForm.password} onChange={function (e) { setAkunForm(Object.assign({}, akunForm, { password: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+                </div>
+                <button onClick={saveAkun} className="w-full bg-rose-600 text-white font-semibold py-2.5 rounded-xl text-sm">Simpan Akun</button>
+              </div>
+
+              {role === 'anggota' && (
+                myWarga ? (
+                  <div className="bg-white rounded-2xl p-4 border border-slate-100 space-y-4">
+                    <p className="text-sm font-semibold text-slate-700">Data Keluarga Saya</p>
+                    {renderWargaFormFields()}
+                    <button onClick={saveMyWarga} className="w-full bg-rose-600 text-white font-semibold py-3 rounded-xl">Simpan Data Keluarga</button>
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-2xl p-4 border border-slate-100 text-center text-sm text-slate-400">Data keluarga belum tertaut. Hubungi pengurus Dasawisma.</div>
+                )
+              )}
+
+              {role === 'pengurus' && (
+                <>
+                  <div className="bg-white rounded-2xl p-4 border border-slate-100">
+                    <p className="text-sm font-semibold text-slate-700 mb-3">Akun Terdaftar</p>
+                    <div className="space-y-2">
+                      {users.length === 0 && <p className="text-xs text-slate-400 text-center py-3">Belum ada akun</p>}
+                      {users.map(function (u) {
+                        return (
+                          <div key={u.id} className="flex justify-between items-center py-2 border-b border-slate-50 last:border-0">
+                            <div>
+                              <p className="text-sm font-medium text-slate-800">{u.namaLengkap}</p>
+                              <p className="text-xs text-slate-400">@{u.username} · {u.role === 'pengurus' ? 'Pengurus' : 'Anggota'}</p>
+                            </div>
+                            {u.id !== currentUser.id && <button onClick={function () { openResetAkunWarga(u); }} className="text-xs text-rose-600 font-medium px-2.5 py-1 bg-rose-50 rounded-full">Reset</button>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className="bg-white rounded-2xl p-4 border border-slate-100">
+                    <p className="text-sm font-semibold text-slate-700 mb-3">Buat Akun untuk Warga</p>
+                    <div className="space-y-2">
+                      {wargaList.filter(function (w) { return !users.some(function (u) { return u.wargaId === w.id; }); }).length === 0 && (
+                        <p className="text-xs text-slate-400 text-center py-3">Semua warga sudah punya akun, atau belum ada data warga</p>
+                      )}
+                      {wargaList.filter(function (w) { return !users.some(function (u) { return u.wargaId === w.id; }); }).map(function (w) {
+                        return (
+                          <div key={w.id} className="flex justify-between items-center py-2 border-b border-slate-50 last:border-0">
+                            <div>
+                              <p className="text-sm font-medium text-slate-800">{w.namaKK}</p>
+                              <p className="text-xs text-slate-400">RT {w.rt}</p>
+                            </div>
+                            <button onClick={function () { openCreateAkunWarga(w); }} className="text-xs bg-rose-600 text-white px-3 py-1.5 rounded-full font-medium">Buat Akun</button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
+            </>
+          )}
+
+          {page === 'chat' && (
+            <div>
+              {!firebaseReady && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-xs text-amber-700 mb-3">
+                  Chat grup belum aktif. Pengurus perlu setup Firebase gratis dulu (lihat README.md), lalu isi firebaseConfig di index.html.
+                </div>
+              )}
+              {firebaseReady && chatMessages.length === 0 && (
+                <p className="text-center text-xs text-slate-400 py-10">Belum ada pesan. Mulai obrolan grup!</p>
+              )}
+              <div className="space-y-2">
+                {chatMessages.map(function (m) {
+                  const isMe = currentUser && m.nama === currentUser.namaLengkap;
+                  const timeLabel = m.timestamp && m.timestamp.toDate ? m.timestamp.toDate().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '';
+                  return (
+                    <div key={m.id} className={'flex ' + (isMe ? 'justify-end' : 'justify-start')}>
+                      <div className={'max-w-[78%] rounded-2xl px-3.5 py-2.5 ' + (isMe ? 'bg-rose-600 text-white' : 'bg-white border border-slate-100 text-slate-800')}>
+                        {!isMe && (<p className={'text-xs font-semibold mb-0.5 ' + (m.role === 'pengurus' ? 'text-rose-600' : 'text-slate-500')}>{m.nama}</p>)}
+                        <p className="text-sm whitespace-pre-wrap">{m.text}</p>
+                        <p className={'text-xs mt-1 ' + (isMe ? 'text-rose-100' : 'text-slate-400')}>{timeLabel}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+                <div ref={chatEndRef}></div>
+              </div>
+            </div>
+          )}
+        </main>
+
+        {page === 'chat' && (
+          <div className="fixed left-0 right-0 flex justify-center z-20" style={{ bottom: '64px' }}>
+            <div className="w-full max-w-md bg-white border-t border-slate-100 px-4 py-2.5 flex gap-2">
+              <input value={chatInput} onChange={function (e) { setChatInput(e.target.value); }} onKeyDown={function (e) { if (e.key === 'Enter') { sendChatMessage(); } }} placeholder="Tulis pesan..." disabled={!firebaseReady} className="flex-1 px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-full text-sm disabled:opacity-50" />
+              <button onClick={sendChatMessage} disabled={!firebaseReady || !chatInput.trim()} className="w-10 h-10 shrink-0 bg-rose-600 text-white rounded-full flex items-center justify-center disabled:opacity-40">
+                <IconSend className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="fixed bottom-0 left-0 right-0 flex justify-center z-30">
+          <div className="w-full max-w-md bg-white border-t border-slate-100 flex">
+            {navItems.map(function (item) {
+              const IconComp = item.icon;
+              return (
+                <button key={item.key} onClick={function () { setPage(item.key); }} className={'flex-1 flex flex-col items-center gap-1 py-2.5 ' + (page === item.key ? 'text-rose-600' : 'text-slate-400')}>
+                  <IconComp className="w-5 h-5" />
+                  <span className="text-xs font-medium">{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {viewingWarga && (
+          <div className="fixed inset-0 z-40 flex items-end justify-center" style={{ backgroundColor: 'rgba(15,23,42,0.5)' }} onClick={function () { setViewingWarga(null); }}>
+            <div className="w-full max-w-md bg-white rounded-t-3xl overflow-y-auto" style={{ maxHeight: '85vh' }} onClick={function (e) { e.stopPropagation(); }}>
+              <div className="sticky top-0 bg-white px-5 pt-4 pb-3 border-b border-slate-100 flex justify-between items-center">
+                <p className="font-bold text-slate-800">{viewingWarga.namaKK}</p>
+                <button onClick={function () { setViewingWarga(null); }}><IconX className="w-5 h-5 text-slate-400" /></button>
+              </div>
+              <div className="p-5 space-y-4">
+                {renderWargaDetail(viewingWarga)}
+                {role === 'pengurus' && (
+                  <div className="flex gap-2 pt-2">
+                    <button onClick={function () { openEditWarga(viewingWarga); setViewingWarga(null); }} className="flex-1 bg-slate-100 text-slate-700 rounded-xl py-2.5 text-sm font-medium flex items-center justify-center gap-1.5"><IconPencil className="w-3.5 h-3.5" />Edit</button>
+                    <button onClick={function () { setConfirmDelete({ type: 'warga', id: viewingWarga.id, label: viewingWarga.namaKK }); setViewingWarga(null); }} className="flex-1 bg-red-50 text-red-600 rounded-xl py-2.5 text-sm font-medium flex items-center justify-center gap-1.5"><IconTrash className="w-3.5 h-3.5" />Hapus</button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {wargaModal && (
+          <div className="fixed inset-0 z-40 flex items-end justify-center" style={{ backgroundColor: 'rgba(15,23,42,0.5)' }} onClick={function () { setWargaModal(null); }}>
+            <div className="w-full max-w-md bg-white rounded-t-3xl overflow-y-auto" style={{ maxHeight: '90vh' }} onClick={function (e) { e.stopPropagation(); }}>
+              <div className="sticky top-0 bg-white px-5 pt-4 pb-3 border-b border-slate-100 flex justify-between items-center z-10">
+                <p className="font-bold text-slate-800">{wargaModal === 'add' ? 'Tambah Data Keluarga' : 'Edit Data Keluarga'}</p>
+                <button onClick={function () { setWargaModal(null); }}><IconX className="w-5 h-5 text-slate-400" /></button>
+              </div>
+              <div className="p-5 space-y-4">
+                {renderWargaFormFields()}
+                <button onClick={saveWarga} className="w-full bg-rose-600 text-white font-semibold py-3 rounded-xl mt-2">Simpan Data</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {kegiatanModal && (
+          <div className="fixed inset-0 z-40 flex items-end justify-center" style={{ backgroundColor: 'rgba(15,23,42,0.5)' }} onClick={function () { setKegiatanModal(null); }}>
+            <div className="w-full max-w-md bg-white rounded-t-3xl overflow-y-auto" style={{ maxHeight: '90vh' }} onClick={function (e) { e.stopPropagation(); }}>
+              <div className="sticky top-0 bg-white px-5 pt-4 pb-3 border-b border-slate-100 flex justify-between items-center">
+                <p className="font-bold text-slate-800">{kegiatanModal === 'add' ? 'Tambah Kegiatan' : 'Edit Kegiatan'}</p>
+                <button onClick={function () { setKegiatanModal(null); }}><IconX className="w-5 h-5 text-slate-400" /></button>
+              </div>
+              <div className="p-5 space-y-4">
+                <div>
+                  <label className="text-xs font-medium text-slate-500">Nama Kegiatan</label>
+                  <input value={kegiatanForm.nama} onChange={function (e) { setKegiatanForm(Object.assign({}, kegiatanForm, { nama: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-medium text-slate-500">Tanggal</label>
+                    <input type="date" value={kegiatanForm.tanggal} onChange={function (e) { setKegiatanForm(Object.assign({}, kegiatanForm, { tanggal: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-500">Pokja</label>
+                    <select value={kegiatanForm.pokja} onChange={function (e) { setKegiatanForm(Object.assign({}, kegiatanForm, { pokja: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm">
+                      {POKJA_LIST.map(function (p) { return <option key={p}>{p}</option>; })}
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-medium text-slate-500">Tempat</label>
+                    <input value={kegiatanForm.tempat} onChange={function (e) { setKegiatanForm(Object.assign({}, kegiatanForm, { tempat: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-500">Jumlah Peserta</label>
+                    <input type="number" min="0" value={kegiatanForm.peserta} onChange={function (e) { setKegiatanForm(Object.assign({}, kegiatanForm, { peserta: Number(e.target.value) || 0 })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-500">Keterangan</label>
+                  <textarea value={kegiatanForm.keterangan} onChange={function (e) { setKegiatanForm(Object.assign({}, kegiatanForm, { keterangan: e.target.value })); }} rows={2} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+                </div>
+                <button onClick={saveKegiatan} className="w-full bg-rose-600 text-white font-semibold py-3 rounded-xl">Simpan Kegiatan</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {keuanganModal && (
+          <div className="fixed inset-0 z-40 flex items-end justify-center" style={{ backgroundColor: 'rgba(15,23,42,0.5)' }} onClick={function () { setKeuanganModal(null); }}>
+            <div className="w-full max-w-md bg-white rounded-t-3xl overflow-y-auto" style={{ maxHeight: '90vh' }} onClick={function (e) { e.stopPropagation(); }}>
+              <div className="sticky top-0 bg-white px-5 pt-4 pb-3 border-b border-slate-100 flex justify-between items-center">
+                <p className="font-bold text-slate-800">{keuanganModal === 'add' ? 'Tambah Transaksi' : 'Edit Transaksi'}</p>
+                <button onClick={function () { setKeuanganModal(null); }}><IconX className="w-5 h-5 text-slate-400" /></button>
+              </div>
+              <div className="p-5 space-y-4">
+                <div className="flex gap-2">
+                  {['Masuk', 'Keluar'].map(function (j) {
+                    return <button key={j} onClick={function () { setKeuanganForm(Object.assign({}, keuanganForm, { jenis: j, kategori: '' })); }} className={'flex-1 py-2.5 rounded-xl text-sm font-medium ' + (keuanganForm.jenis === j ? (j === 'Masuk' ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white') : 'bg-slate-100 text-slate-500')}>{j}</button>;
+                  })}
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-500">Tanggal</label>
+                  <input type="date" value={keuanganForm.tanggal} onChange={function (e) { setKeuanganForm(Object.assign({}, keuanganForm, { tanggal: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-500">Kategori</label>
+                  <input value={keuanganForm.kategori} onChange={function (e) { setKeuanganForm(Object.assign({}, keuanganForm, { kategori: e.target.value })); }} placeholder="cth. Kas PKK" className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+                  <div className="flex gap-1.5 flex-wrap mt-2">
+                    {(keuanganForm.jenis === 'Masuk' ? KATEGORI_MASUK : KATEGORI_KELUAR).map(function (c) {
+                      return <button key={c} onClick={function () { setKeuanganForm(Object.assign({}, keuanganForm, { kategori: c })); }} className="text-xs px-2.5 py-1 bg-slate-100 rounded-full text-slate-600">{c}</button>;
+                    })}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-500">Nominal (Rp)</label>
+                  <input type="number" min="0" value={keuanganForm.nominal} onChange={function (e) { setKeuanganForm(Object.assign({}, keuanganForm, { nominal: Number(e.target.value) || 0 })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-500">Keterangan</label>
+                  <textarea value={keuanganForm.keterangan} onChange={function (e) { setKeuanganForm(Object.assign({}, keuanganForm, { keterangan: e.target.value })); }} rows={2} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-500">Lampiran Bukti (opsional)</label>
+                  {keuanganForm.attachment ? (
+                    <div className="mt-1 flex items-center justify-between bg-slate-50 rounded-xl px-3 py-2.5">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <IconPaperclip className="w-4 h-4 text-slate-400 shrink-0" />
+                        <span className="text-xs text-slate-600 truncate">{keuanganForm.attachment.name}</span>
+                      </div>
+                      <button onClick={function () { setKeuanganForm(Object.assign({}, keuanganForm, { attachment: null })); }}><IconX className="w-4 h-4 text-red-400" /></button>
+                    </div>
+                  ) : (
+                    <label className="mt-1 flex items-center justify-center gap-2 border border-dashed border-slate-300 rounded-xl py-3 text-xs text-slate-500 cursor-pointer">
+                      <IconUpload className="w-4 h-4" /> Pilih foto bukti
+                      <input type="file" accept="image/*" className="hidden" onChange={handleAttachmentChange} />
+                    </label>
+                  )}
+                </div>
+                <button onClick={saveKeuangan} className="w-full bg-rose-600 text-white font-semibold py-3 rounded-xl">Simpan Transaksi</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {iuranModal && (
+          <div className="fixed inset-0 z-40 flex items-end justify-center" style={{ backgroundColor: 'rgba(15,23,42,0.5)' }} onClick={function () { setIuranModal(false); }}>
+            <div className="w-full max-w-md bg-white rounded-t-3xl overflow-y-auto" style={{ maxHeight: '90vh' }} onClick={function (e) { e.stopPropagation(); }}>
+              <div className="sticky top-0 bg-white px-5 pt-4 pb-3 border-b border-slate-100 flex justify-between items-center">
+                <p className="font-bold text-slate-800">Catat Iuran Rutin</p>
+                <button onClick={function () { setIuranModal(false); }}><IconX className="w-5 h-5 text-slate-400" /></button>
+              </div>
+              <div className="p-5 space-y-4">
+                <div>
+                  <label className="text-xs font-medium text-slate-500">Nama / Keterangan Pembayar</label>
+                  <input value={iuranForm.nama} onChange={function (e) { setIuranForm(Object.assign({}, iuranForm, { nama: e.target.value })); }} placeholder="cth. Bu Siti - Blok A2" className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-500">Tanggal Pembayaran</label>
+                  <input type="date" value={iuranForm.tanggal} onChange={function (e) { setIuranForm(Object.assign({}, iuranForm, { tanggal: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+                </div>
+                <div className="bg-slate-50 rounded-xl p-3 space-y-2">
+                  <p className="text-xs font-semibold text-slate-600 mb-1">Rincian Pembagian</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs text-slate-600 flex-1">Kas PKK</span>
+                    <input type="number" min="0" value={iuranForm.pkk} onChange={function (e) { setIuranForm(Object.assign({}, iuranForm, { pkk: Number(e.target.value) || 0 })); }} className="w-24 px-2 py-1.5 border border-slate-200 rounded-lg text-xs text-right" />
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs text-slate-600 flex-1">Posyandu</span>
+                    <input type="number" min="0" value={iuranForm.posyandu} onChange={function (e) { setIuranForm(Object.assign({}, iuranForm, { posyandu: Number(e.target.value) || 0 })); }} className="w-24 px-2 py-1.5 border border-slate-200 rounded-lg text-xs text-right" />
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs text-slate-600 flex-1">Kas Dawis</span>
+                    <input type="number" min="0" value={iuranForm.dawis} onChange={function (e) { setIuranForm(Object.assign({}, iuranForm, { dawis: Number(e.target.value) || 0 })); }} className="w-24 px-2 py-1.5 border border-slate-200 rounded-lg text-xs text-right" />
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs text-slate-600 flex-1">Arisan</span>
+                    <input type="number" min="0" value={iuranForm.arisan} onChange={function (e) { setIuranForm(Object.assign({}, iuranForm, { arisan: Number(e.target.value) || 0 })); }} className="w-24 px-2 py-1.5 border border-slate-200 rounded-lg text-xs text-right" />
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs text-slate-600 flex-1">Lain-lain</span>
+                    <input type="number" min="0" value={iuranForm.lainLain} onChange={function (e) { setIuranForm(Object.assign({}, iuranForm, { lainLain: Number(e.target.value) || 0 })); }} className="w-24 px-2 py-1.5 border border-slate-200 rounded-lg text-xs text-right" />
+                  </div>
+                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-200">
+                    <span className="text-xs font-semibold text-slate-700 flex-1">Total</span>
+                    <span className="text-sm font-bold text-rose-600">{formatRupiah(Number(iuranForm.pkk || 0) + Number(iuranForm.posyandu || 0) + Number(iuranForm.dawis || 0) + Number(iuranForm.arisan || 0) + Number(iuranForm.lainLain || 0))}</span>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-500">Foto Bukti Pembayaran (opsional)</label>
+                  {iuranForm.attachment ? (
+                    <div className="mt-1 flex items-center justify-between bg-slate-50 rounded-xl px-3 py-2.5">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <IconPaperclip className="w-4 h-4 text-slate-400 shrink-0" />
+                        <span className="text-xs text-slate-600 truncate">{iuranForm.attachment.name}</span>
+                      </div>
+                      <button onClick={function () { setIuranForm(Object.assign({}, iuranForm, { attachment: null })); }}><IconX className="w-4 h-4 text-red-400" /></button>
+                    </div>
+                  ) : (
+                    <label className="mt-1 flex items-center justify-center gap-2 border border-dashed border-slate-300 rounded-xl py-3 text-xs text-slate-500 cursor-pointer">
+                      <IconUpload className="w-4 h-4" /> Pilih foto bukti transfer/tunai
+                      <input type="file" accept="image/*" className="hidden" onChange={handleIuranAttachment} />
+                    </label>
+                  )}
+                </div>
+                <button onClick={saveIuran} className="w-full bg-rose-600 text-white font-semibold py-3 rounded-xl">Simpan Iuran</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {akunWargaModal && (
+          <div className="fixed inset-0 z-40 flex items-center justify-center px-6" style={{ backgroundColor: 'rgba(15,23,42,0.5)' }} onClick={function () { setAkunWargaModal(null); }}>
+            <div className="bg-white rounded-2xl p-5 w-full max-w-xs" onClick={function (e) { e.stopPropagation(); }}>
+              <p className="font-bold text-slate-800 mb-1">{akunWargaModal.mode === 'create' ? 'Buat Akun Login' : 'Reset Akun'}</p>
+              <p className="text-xs text-slate-400 mb-4">{akunWargaModal.namaKK}</p>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-medium text-slate-500">Jenis Akun</label>
+                  <div className="flex gap-2 mt-1">
+                    {['anggota', 'pengurus'].map(function (r) {
+                      return <button key={r} onClick={function () { setAkunWargaForm(Object.assign({}, akunWargaForm, { role: r })); }} className={'flex-1 py-2 rounded-xl text-xs font-medium border ' + (akunWargaForm.role === r ? 'bg-rose-600 text-white border-rose-600' : 'bg-white text-slate-500 border-slate-200')}>{r === 'anggota' ? 'Anggota' : 'Pengurus'}</button>;
+                    })}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-500">Username</label>
+                  <input value={akunWargaForm.username} onChange={function (e) { setAkunWargaForm(Object.assign({}, akunWargaForm, { username: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-500">Password {akunWargaModal.mode === 'reset' ? 'Baru' : ''}</label>
+                  <input type="text" value={akunWargaForm.password} onChange={function (e) { setAkunWargaForm(Object.assign({}, akunWargaForm, { password: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+                </div>
+              </div>
+              <div className="flex gap-2 mt-4">
+                <button onClick={function () { setAkunWargaModal(null); }} className="flex-1 bg-slate-100 text-slate-600 py-2.5 rounded-xl text-sm font-medium">Batal</button>
+                <button onClick={saveAkunWarga} className="flex-1 bg-rose-600 text-white py-2.5 rounded-xl text-sm font-medium">Simpan</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {notifModal && (
+          <div className="fixed inset-0 z-40 flex items-end justify-center" style={{ backgroundColor: 'rgba(15,23,42,0.5)' }} onClick={function () { setNotifModal(false); }}>
+            <div className="w-full max-w-md bg-white rounded-t-3xl overflow-y-auto" style={{ maxHeight: '90vh' }} onClick={function (e) { e.stopPropagation(); }}>
+              <div className="sticky top-0 bg-white px-5 pt-4 pb-3 border-b border-slate-100 flex justify-between items-center">
+                <p className="font-bold text-slate-800">Buat Notifikasi</p>
+                <button onClick={function () { setNotifModal(false); }}><IconX className="w-5 h-5 text-slate-400" /></button>
+              </div>
+              <div className="p-5 space-y-4">
+                <div className="flex gap-2">
+                  {NOTIF_KATEGORI.map(function (k) {
+                    return <button key={k} onClick={function () { setNotifForm(Object.assign({}, notifForm, { kategori: k })); }} className={'flex-1 py-2 rounded-xl text-xs font-medium ' + (notifForm.kategori === k ? 'bg-rose-600 text-white' : 'bg-slate-100 text-slate-500')}>{k}</button>;
+                  })}
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-500">Judul</label>
+                  <input value={notifForm.judul} onChange={function (e) { setNotifForm(Object.assign({}, notifForm, { judul: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-500">Pesan</label>
+                  <textarea value={notifForm.pesan} onChange={function (e) { setNotifForm(Object.assign({}, notifForm, { pesan: e.target.value })); }} rows={3} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-500">Tanggal</label>
+                  <input type="date" value={notifForm.tanggal} onChange={function (e) { setNotifForm(Object.assign({}, notifForm, { tanggal: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+                </div>
+                <label className="flex items-center gap-2 text-xs text-slate-600">
+                  <input type="checkbox" checked={notifForm.berulang} onChange={function (e) { setNotifForm(Object.assign({}, notifForm, { berulang: e.target.checked })); }} />
+                  Notifikasi berulang (setiap bulan, bukan sekali saja)
+                </label>
+                <button onClick={saveNotif} className="w-full bg-rose-600 text-white font-semibold py-3 rounded-xl">Kirim Notifikasi</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {pengajuanModal && (
+          <div className="fixed inset-0 z-40 flex items-end justify-center" style={{ backgroundColor: 'rgba(15,23,42,0.5)' }} onClick={function () { setPengajuanModal(false); }}>
+            <div className="w-full max-w-md bg-white rounded-t-3xl overflow-y-auto" style={{ maxHeight: '90vh' }} onClick={function (e) { e.stopPropagation(); }}>
+              <div className="sticky top-0 bg-white px-5 pt-4 pb-3 border-b border-slate-100 flex justify-between items-center">
+                <p className="font-bold text-slate-800">Ajukan Pembayaran</p>
+                <button onClick={function () { setPengajuanModal(false); }}><IconX className="w-5 h-5 text-slate-400" /></button>
+              </div>
+              <div className="p-5 space-y-4">
+                <div>
+                  <label className="text-xs font-medium text-slate-500">Nominal Transfer (Rp)</label>
+                  <input type="number" min="0" value={pengajuanForm.nominal} onChange={function (e) { setPengajuanForm(Object.assign({}, pengajuanForm, { nominal: Number(e.target.value) || 0 })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-500">Tanggal Pembayaran</label>
+                  <input type="date" value={pengajuanForm.tanggal} onChange={function (e) { setPengajuanForm(Object.assign({}, pengajuanForm, { tanggal: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-500">Foto Bukti Transfer</label>
+                  {pengajuanForm.bukti ? (
+                    <div className="mt-1">
+                      <img src={pengajuanForm.bukti} className="w-full rounded-xl" alt="bukti" />
+                      <button onClick={function () { setPengajuanForm(Object.assign({}, pengajuanForm, { bukti: null })); }} className="text-xs text-red-500 mt-2">Hapus foto</button>
+                    </div>
+                  ) : (
+                    <label className="mt-1 flex items-center justify-center gap-2 border border-dashed border-slate-300 rounded-xl py-3 text-xs text-slate-500 cursor-pointer">
+                      <IconUpload className="w-4 h-4" /> Pilih foto bukti transfer
+                      <input type="file" accept="image/*" className="hidden" onChange={handlePengajuanBukti} />
+                    </label>
+                  )}
+                </div>
+                <button onClick={submitPengajuan} className="w-full bg-rose-600 text-white font-semibold py-3 rounded-xl">Kirim ke Pengurus</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {klasifikasiModal && (
+          <div className="fixed inset-0 z-40 flex items-end justify-center" style={{ backgroundColor: 'rgba(15,23,42,0.5)' }} onClick={function () { setKlasifikasiModal(null); }}>
+            <div className="w-full max-w-md bg-white rounded-t-3xl overflow-y-auto" style={{ maxHeight: '90vh' }} onClick={function (e) { e.stopPropagation(); }}>
+              <div className="sticky top-0 bg-white px-5 pt-4 pb-3 border-b border-slate-100 flex justify-between items-center">
+                <p className="font-bold text-slate-800">Klasifikasi Pembayaran</p>
+                <button onClick={function () { setKlasifikasiModal(null); }}><IconX className="w-5 h-5 text-slate-400" /></button>
+              </div>
+              <div className="p-5 space-y-4">
+                <div className="bg-slate-50 rounded-xl p-3">
+                  <p className="text-xs text-slate-500">Dari: {klasifikasiModal.namaPengaju}</p>
+                  <p className="text-xs text-slate-500">Tanggal: {formatTanggal(klasifikasiModal.tanggal)}</p>
+                  <p className="text-sm font-bold text-slate-800 mt-1">Nominal Diajukan: {formatRupiah(klasifikasiModal.nominal)}</p>
+                </div>
+                {klasifikasiModal.buktiDataUrl && <img src={klasifikasiModal.buktiDataUrl} className="w-full rounded-xl" alt="bukti" />}
+                <div className="space-y-2">
+                  {[['kasPkk', 'Kas PKK'], ['kasDawis', 'Kas Dawis'], ['posyandu', 'Posyandu'], ['arisan', 'Arisan'], ['lainLain', 'Lain-lain']].map(function (pair) {
+                    return (
+                      <div key={pair[0]} className="flex items-center justify-between gap-2">
+                        <span className="text-xs text-slate-600 flex-1">{pair[1]}</span>
+                        <input type="number" min="0" value={klasifikasiForm[pair[0]]} onChange={function (e) { const v = {}; v[pair[0]] = Number(e.target.value) || 0; setKlasifikasiForm(Object.assign({}, klasifikasiForm, v)); }} className="w-24 px-2 py-1.5 border border-slate-200 rounded-lg text-xs text-right" />
+                      </div>
+                    );
+                  })}
+                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-200">
+                    <span className="text-xs font-semibold text-slate-700 flex-1">Total Klasifikasi</span>
+                    <span className={'text-sm font-bold ' + (klasifikasiTotal(klasifikasiForm) === Number(klasifikasiModal.nominal) ? 'text-emerald-600' : 'text-red-500')}>{formatRupiah(klasifikasiTotal(klasifikasiForm))}</span>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={function () { rejectTagihan(klasifikasiModal); }} className="flex-1 bg-red-50 text-red-600 py-2.5 rounded-xl text-sm font-medium">Tolak</button>
+                  <button onClick={approveTagihan} className="flex-1 bg-rose-600 text-white py-2.5 rounded-xl text-sm font-medium">Setujui</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {confirmDelete && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-6" style={{ backgroundColor: 'rgba(15,23,42,0.5)' }}>
+            <div className="bg-white rounded-2xl p-5 w-full max-w-xs text-center">
+              <IconAlertCircle className="w-10 h-10 text-red-500 mx-auto mb-2" />
+              <p className="font-semibold text-slate-800 text-sm">Hapus Data?</p>
+              <p className="text-xs text-slate-500 mt-1">"{confirmDelete.label}" akan dihapus permanen.</p>
+              <div className="flex gap-2 mt-4">
+                <button onClick={function () { setConfirmDelete(null); }} className="flex-1 bg-slate-100 text-slate-600 py-2.5 rounded-xl text-sm font-medium">Batal</button>
+                <button onClick={confirmDeleteAction} className="flex-1 bg-red-600 text-white py-2.5 rounded-xl text-sm font-medium">Hapus</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const rootEl = document.getElementById('root');
+const root = ReactDOM.createRoot(rootEl);
+root.render(<App />);
+  </script>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('/service-worker.js').catch(function () {});
+      });
+    }
+  </script>
+</body>
+</html>
