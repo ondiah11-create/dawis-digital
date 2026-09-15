@@ -60,13 +60,12 @@ const IconMessageCircle = (p) => <Icon {...p}><path d="M21 11.5a8.38 8.38 0 0 1-
 const IconSend = (p) => <Icon {...p}><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></Icon>;
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAwhF2B1fU_06xDir1lJ6Pa4-3KkIecKu4",
-  authDomain: "dasawisma-digital.firebaseapp.com",
-  projectId: "dasawisma-digital",
-  storageBucket: "dasawisma-digital.firebasestorage.app",
-  messagingSenderId: "438802301132",
-  appId: "1:438802301132:web:aaa3518cceae7198e9c269",
-  measurementId: "G-7WPBDH6DW9"
+  apiKey: "GANTI_API_KEY",
+  authDomain: "GANTI.firebaseapp.com",
+  projectId: "GANTI_PROJECT_ID",
+  storageBucket: "GANTI.appspot.com",
+  messagingSenderId: "GANTI_SENDER_ID",
+  appId: "GANTI_APP_ID"
 };
 
 let chatDb = null;
@@ -117,7 +116,14 @@ function compressImage(file, maxDim, quality) {
         canvas.width = w; canvas.height = h;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL('image/jpeg', quality));
+        let out = canvas.toDataURL('image/jpeg', quality);
+        let q = quality;
+        while (out.length > 700000 && q > 0.25) {
+          q = q - 0.1;
+          out = canvas.toDataURL('image/jpeg', q);
+        }
+        if (out.length > 700000) { reject(new Error('Foto terlalu besar, coba foto dengan resolusi lebih kecil')); return; }
+        resolve(out);
       };
       img.onerror = function () { reject(new Error('gagal load gambar')); };
       img.src = e.target.result;
@@ -252,11 +258,11 @@ function App() {
   useEffect(function () { safeSetItem('dasawisma_users', users); }, [users]);
   useEffect(function () { safeSetItem('dasawisma_warga', wargaList); }, [wargaList]);
   useEffect(function () { safeSetItem('dasawisma_kegiatan', kegiatanList); }, [kegiatanList]);
-  useEffect(function () { safeSetItem('dasawisma_keuangan', keuanganList); }, [keuanganList]);
   useEffect(function () {
     if (currentUser) safeSetItem('dasawisma_session', currentUser);
     else { try { localStorage.removeItem('dasawisma_session'); } catch (e) {} }
   }, [currentUser]);
+  useEffect(function () { try { localStorage.removeItem('dasawisma_keuangan'); } catch (e) {} }, []);
 
   const showLocalNotification = (judul, pesan) => {
     if (notifPermission !== 'granted') return;
@@ -295,6 +301,18 @@ function App() {
       }, function () { setNotifikasiList([]); });
     return function () { unsub(); };
   }, [notifPermission]);
+
+  useEffect(function () {
+    if (!chatDb) return;
+    const unsub = chatDb.collection('dasawisma_keuangan')
+      .orderBy('tanggal', 'desc')
+      .limit(500)
+      .onSnapshot(function (snapshot) {
+        const items = snapshot.docs.map(function (doc) { return Object.assign({ id: doc.id }, doc.data()); });
+        setKeuanganList(items);
+      }, function () { setKeuanganList([]); });
+    return function () { unsub(); };
+  }, []);
 
   useEffect(function () {
     if (!chatDb) return;
@@ -550,8 +568,20 @@ function App() {
   const openEditKeuangan = (k) => { setKeuanganForm(Object.assign({}, k)); setKeuanganModal('edit'); };
   const saveKeuangan = () => {
     if (!keuanganForm.kategori.trim() || !keuanganForm.nominal) { showToast('Kategori dan nominal wajib diisi', 'error'); return; }
-    if (keuanganModal === 'add') { setKeuanganList(function (prev) { return prev.concat([Object.assign({}, keuanganForm, { id: nextId() })]); }); showToast('Transaksi berhasil ditambahkan'); }
-    else { setKeuanganList(function (prev) { return prev.map(function (k) { return k.id === keuanganForm.id ? keuanganForm : k; }); }); showToast('Transaksi berhasil diperbarui'); }
+    if (!chatDb) { showToast('Firebase belum aktif, data tidak bisa disimpan', 'error'); return; }
+    const data = {
+      tanggal: keuanganForm.tanggal || '',
+      jenis: keuanganForm.jenis || 'Masuk',
+      kategori: keuanganForm.kategori || '',
+      nominal: Number(keuanganForm.nominal) || 0,
+      keterangan: keuanganForm.keterangan || '',
+      attachment: keuanganForm.attachment || null
+    };
+    const p = keuanganModal === 'add'
+      ? chatDb.collection('dasawisma_keuangan').add(data)
+      : chatDb.collection('dasawisma_keuangan').doc(keuanganForm.id).update(data);
+    p.then(function () { showToast(keuanganModal === 'add' ? 'Transaksi berhasil ditambahkan' : 'Transaksi berhasil diperbarui'); })
+     .catch(function () { showToast('Gagal menyimpan, cek koneksi internet', 'error'); });
     setKeuanganModal(null);
   };
   const exportKeuangan = () => {
@@ -581,24 +611,27 @@ function App() {
     if (!iuranForm.tanggal) { showToast('Tanggal pembayaran wajib diisi', 'error'); return; }
     const total = Number(iuranForm.pkk || 0) + Number(iuranForm.posyandu || 0) + Number(iuranForm.dawis || 0) + Number(iuranForm.arisan || 0) + Number(iuranForm.lainLain || 0);
     if (total <= 0) { showToast('Nominal tidak boleh kosong semua', 'error'); return; }
+    if (!chatDb) { showToast('Firebase belum aktif, data tidak bisa disimpan', 'error'); return; }
     const note = iuranForm.nama || '';
-    const newEntries = [];
     const mapping = [['pkk', 'Kas PKK'], ['posyandu', 'Posyandu'], ['dawis', 'Kas Dawis'], ['arisan', 'Arisan'], ['lainLain', 'Lain-lain']];
-    let firstDone = false;
+    const batch = chatDb.batch();
+    let firstDone = false, firstKategori = '', count = 0;
     mapping.forEach(function (pair) {
       const val = Number(iuranForm[pair[0]] || 0);
       if (val > 0) {
-        newEntries.push({
-          id: nextId(), tanggal: iuranForm.tanggal, jenis: 'Masuk', kategori: pair[1], nominal: val,
-          keterangan: note + (firstDone && iuranForm.attachment ? ' (bukti sama dgn ' + newEntries[0].kategori + ')' : ''),
-          attachment: !firstDone ? iuranForm.attachment : null
+        const docRef = chatDb.collection('dasawisma_keuangan').doc();
+        batch.set(docRef, {
+          tanggal: iuranForm.tanggal, jenis: 'Masuk', kategori: pair[1], nominal: val,
+          keterangan: (note || '') + (firstDone ? ' (bukti sama dgn ' + firstKategori + ')' : ''),
+          attachment: !firstDone ? (iuranForm.attachment || null) : null
         });
+        if (!firstDone) firstKategori = pair[1];
         firstDone = true;
+        count++;
       }
     });
-    setKeuanganList(function (prev) { return prev.concat(newEntries); });
-    showToast('Iuran berhasil dicatat (' + newEntries.length + ' entri)');
-    setIuranModal(false);
+    batch.commit().then(function () { showToast('Iuran berhasil dicatat (' + count + ' entri)'); setIuranModal(false); })
+      .catch(function () { showToast('Gagal menyimpan, cek koneksi internet', 'error'); });
   };
 
   const openNotif = () => { setNotifForm(emptyNotifForm()); setNotifModal(true); };
@@ -649,23 +682,25 @@ function App() {
     const t = klasifikasiModal;
     const total = klasifikasiTotal(klasifikasiForm);
     if (total !== Number(t.nominal)) { showToast('Total klasifikasi (' + formatRupiah(total) + ') harus sama dengan nominal diajukan (' + formatRupiah(t.nominal) + ')', 'error'); return; }
-    const entries = [];
+    if (!chatDb) { showToast('Firebase belum aktif, data tidak bisa disimpan', 'error'); return; }
     const mapping = [['kasPkk', 'Kas PKK'], ['kasDawis', 'Kas Dawis'], ['posyandu', 'Posyandu'], ['arisan', 'Arisan'], ['lainLain', 'Lain-lain']];
+    const batch = chatDb.batch();
     let firstDone = false;
     mapping.forEach(function (pair) {
       const val = Number(klasifikasiForm[pair[0]] || 0);
       if (val > 0) {
-        entries.push({
-          id: nextId(), tanggal: t.tanggal, jenis: 'Masuk', kategori: pair[1], nominal: val,
-          keterangan: t.namaPengaju, attachment: !firstDone && t.buktiDataUrl ? { name: 'bukti-' + t.id + '.jpg', dataUrl: t.buktiDataUrl } : null
+        const docRef = chatDb.collection('dasawisma_keuangan').doc();
+        batch.set(docRef, {
+          tanggal: t.tanggal || '', jenis: 'Masuk', kategori: pair[1], nominal: val,
+          keterangan: t.namaPengaju || '', attachment: !firstDone && t.buktiDataUrl ? { name: 'bukti-' + t.id + '.jpg', dataUrl: t.buktiDataUrl } : null
         });
         firstDone = true;
       }
     });
-    setKeuanganList(function (prev) { return prev.concat(entries); });
-    if (chatDb) chatDb.collection('dasawisma_tagihan').doc(t.id).update({ status: 'approved', klasifikasi: klasifikasiForm });
-    showToast('Pembayaran disetujui & tercatat di keuangan');
-    setKlasifikasiModal(null);
+    const tagihanRef = chatDb.collection('dasawisma_tagihan').doc(t.id);
+    batch.update(tagihanRef, { status: 'approved', klasifikasi: klasifikasiForm });
+    batch.commit().then(function () { showToast('Pembayaran disetujui & tercatat di keuangan'); setKlasifikasiModal(null); })
+      .catch(function () { showToast('Gagal menyimpan, cek koneksi internet', 'error'); });
   };
   const rejectTagihan = (t) => {
     if (chatDb) chatDb.collection('dasawisma_tagihan').doc(t.id).update({ status: 'rejected' });
@@ -673,11 +708,19 @@ function App() {
     setKlasifikasiModal(null);
   };
 
+  const resetLocalData = () => {
+    try {
+      ['dasawisma_users', 'dasawisma_warga', 'dasawisma_kegiatan', 'dasawisma_keuangan', 'dasawisma_session', 'dasawisma_idcounter'].forEach(function (k) { localStorage.removeItem(k); });
+    } catch (e) {}
+    window.location.reload();
+  };
+
   const confirmDeleteAction = () => {
     const type = confirmDelete.type, id = confirmDelete.id, label = confirmDelete.label;
+    if (type === 'resetlokal') { resetLocalData(); return; }
     if (type === 'warga') setWargaList(function (prev) { return prev.filter(function (w) { return w.id !== id; }); });
     if (type === 'kegiatan') setKegiatanList(function (prev) { return prev.filter(function (k) { return k.id !== id; }); });
-    if (type === 'keuangan') setKeuanganList(function (prev) { return prev.filter(function (k) { return k.id !== id; }); });
+    if (type === 'keuangan') { if (chatDb) chatDb.collection('dasawisma_keuangan').doc(id).delete(); }
     if (type === 'notifikasi') { if (chatDb) chatDb.collection('dasawisma_notifikasi').doc(id).delete(); }
     setConfirmDelete(null);
     showToast(label + ' berhasil dihapus');
@@ -715,17 +758,20 @@ function App() {
           setWargaList(function (prev) { return prev.concat(mapped); });
           showToast(mapped.length + ' data warga berhasil diimport');
         } else if (type === 'keuangan') {
+          if (!chatDb) { showToast('Firebase belum aktif, data tidak bisa disimpan', 'error'); return; }
           const mapped = json.map(function (row) {
             return {
-              id: nextId(), tanggal: parseExcelDate(getField(row, 'Tanggal')),
+              tanggal: parseExcelDate(getField(row, 'Tanggal')),
               jenis: getField(row, 'Jenis') === 'Keluar' ? 'Keluar' : 'Masuk',
               kategori: String(getField(row, 'Kategori') || ''), nominal: Number(getField(row, 'Nominal')) || 0,
               keterangan: String(getField(row, 'Keterangan') || ''), attachment: null
             };
           }).filter(function (k) { return k.kategori; });
           if (mapped.length === 0) { showToast('Tidak ada data terbaca. Cek kolom "Kategori" di file.', 'error'); return; }
-          setKeuanganList(function (prev) { return prev.concat(mapped); });
-          showToast(mapped.length + ' transaksi berhasil diimport');
+          const batch = chatDb.batch();
+          mapped.forEach(function (m) { batch.set(chatDb.collection('dasawisma_keuangan').doc(), m); });
+          batch.commit().then(function () { showToast(mapped.length + ' transaksi berhasil diimport'); })
+            .catch(function () { showToast('Gagal import, cek koneksi internet', 'error'); });
         } else if (type === 'kegiatan') {
           const mapped = json.map(function (row) {
             return {
@@ -1241,6 +1287,7 @@ function App() {
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-slate-800 truncate">{t.namaPengaju}</p>
                           <p className="text-xs text-slate-400">{formatTanggal(t.tanggal)} · {formatRupiah(t.nominal)}</p>
+                          {t.periode !== currentPeriode && <p className="text-xs text-amber-600 mt-0.5">periode lama</p>}
                         </div>
                         <button onClick={function () { openKlasifikasi(t); }} className="text-xs bg-rose-600 text-white px-3 py-1.5 rounded-full font-medium shrink-0">Proses</button>
                       </div>
@@ -1413,6 +1460,11 @@ function App() {
                         );
                       })}
                     </div>
+                  </div>
+                  <div className="bg-white rounded-2xl p-4 border border-red-100">
+                    <p className="text-sm font-semibold text-red-600 mb-1">Reset Data Lokal</p>
+                    <p className="text-xs text-slate-500 mb-3">Menghapus data Warga, Kegiatan, dan Akun yang tersimpan di HP ini, lalu kembali ke kondisi awal (login: pengurus / pengurus123). Data Keuangan, Chat, Notifikasi, dan Tagihan TIDAK terhapus karena tersimpan di Firebase — hapus lewat Firebase Console kalau perlu.</p>
+                    <button onClick={function () { setConfirmDelete({ type: 'resetlokal', id: null, label: 'Semua data lokal di HP ini' }); }} className="w-full bg-red-600 text-white font-semibold py-2.5 rounded-xl text-sm">Reset Data Lokal</button>
                   </div>
                 </>
               )}
