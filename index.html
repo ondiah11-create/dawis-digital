@@ -88,6 +88,7 @@ const KATEGORI_KELUAR = ['Operasional', 'Konsumsi Kegiatan', 'ATK', 'Sosial', 'L
 const WARGA_HEADERS = ['Nama Kepala Keluarga', 'RT', 'Alamat', 'Balita', 'PUS', 'WUS', 'Ibu Hamil', 'Ibu Menyusui', 'Lansia', '3 Buta', 'Berkebutuhan Khusus', 'Kriteria Rumah', 'Jamban', 'Sumber Air', 'Tempat Sampah', 'Saluran Limbah', 'Stiker P4K', 'Makanan Pokok', 'UP2K', 'Jenis Usaha'];
 const KEGIATAN_HEADERS = ['Nama Kegiatan', 'Tanggal', 'Pokja', 'Jumlah Peserta', 'Tempat', 'Keterangan'];
 const KEUANGAN_HEADERS = ['Tanggal', 'Jenis', 'Kategori', 'Nominal', 'Keterangan'];
+const ANGGOTA_HEADERS = ['Nama', 'Jenis Kelamin (L/P)', 'Tanggal Lahir', 'Status Dalam Keluarga', 'Status Kawin', 'Pendidikan', 'Pekerjaan'];
 const NOTIF_KATEGORI = ['Pengumuman', 'Tagihan', 'Kegiatan'];
 const TAGIHAN_KATEGORI = ['Kas PKK', 'Kas Dawis', 'Posyandu', 'Arisan', 'Lain-lain'];
 
@@ -143,10 +144,11 @@ const emptyWargaForm = () => ({
   kriteriaRumah: 'Sehat', jamban: 'Ya', sumberAir: 'PDAM', sampah: 'Ya', limbah: 'Ya',
   stikerP4K: 'Tidak', makanan: 'Beras', up2k: 'Tidak', jenisUsaha: ''
 });
-const emptyKegiatanForm = () => ({ id: null, nama: '', tanggal: '', pokja: 'Umum', peserta: 0, tempat: '', keterangan: '' });
+const emptyKegiatanForm = () => ({ id: null, nama: '', tanggal: '', pokja: 'Umum', peserta: 0, tempat: '', keterangan: '', kirimNotifikasi: true });
+const emptyPengumumanForm = () => ({ judul: '', pesan: '', tanggal: '', kirimNotifikasi: true });
+const emptyTagihanNotifForm = () => ({ judul: '', pesan: '', tanggal: '', berulang: false, kirimNotifikasi: true });
 const emptyKeuanganForm = () => ({ id: null, tanggal: '', jenis: 'Masuk', kategori: '', nominal: 0, keterangan: '', attachment: null });
 const emptyIuranForm = () => ({ nama: '', tanggal: '', attachment: null, pkk: 5000, posyandu: 2000, dawis: 7000, arisan: 0, lainLain: 0 });
-const emptyNotifForm = () => ({ judul: '', pesan: '', kategori: 'Pengumuman', tanggal: '', berulang: false });
 const emptyPengajuanForm = () => ({ nominal: 0, tanggal: '', bukti: null });
 const emptyKlasifikasiForm = () => ({ kasPkk: 0, kasDawis: 0, posyandu: 0, arisan: 0, lainLain: 0 });
 
@@ -214,6 +216,8 @@ function App() {
   const [kegiatanList, setKegiatanList] = useState(function () { return loadPersisted('dasawisma_kegiatan', seedKegiatan); });
   const [keuanganList, setKeuanganList] = useState([]);
   const [notifikasiList, setNotifikasiList] = useState([]);
+  const [notifFilter, setNotifFilter] = useState('semua');
+  const [readNotifIds, setReadNotifIds] = useState(function () { return loadPersisted('dasawisma_notif_read', []); });
   const [tagihanList, setTagihanList] = useState([]);
   const [notifPermission, setNotifPermission] = useState(typeof Notification !== 'undefined' ? Notification.permission : 'unsupported');
   const mountTimeRef = useRef(Date.now());
@@ -238,8 +242,10 @@ function App() {
   const [iuranModal, setIuranModal] = useState(false);
   const [iuranForm, setIuranForm] = useState(emptyIuranForm());
 
-  const [notifModal, setNotifModal] = useState(false);
-  const [notifForm, setNotifForm] = useState(emptyNotifForm());
+  const [pengumumanModal, setPengumumanModal] = useState(false);
+  const [pengumumanForm, setPengumumanForm] = useState(emptyPengumumanForm());
+  const [tagihanNotifModal, setTagihanNotifModal] = useState(false);
+  const [tagihanNotifForm, setTagihanNotifForm] = useState(emptyTagihanNotifForm());
   const [pengajuanModal, setPengajuanModal] = useState(false);
   const [pengajuanForm, setPengajuanForm] = useState(emptyPengajuanForm());
   const [klasifikasiModal, setKlasifikasiModal] = useState(null);
@@ -264,6 +270,11 @@ function App() {
     else { try { localStorage.removeItem('dasawisma_session'); } catch (e) {} }
   }, [currentUser]);
   useEffect(function () { try { localStorage.removeItem('dasawisma_keuangan'); } catch (e) {} }, []);
+
+  useEffect(function () { safeSetItem('dasawisma_notif_read', readNotifIds); }, [readNotifIds]);
+  const markNotifRead = (id) => {
+    setReadNotifIds(function (prev) { return prev.includes(id) ? prev : prev.concat([id]); });
+  };
 
   const showLocalNotification = (judul, pesan) => {
     if (notifPermission !== 'granted') return;
@@ -484,6 +495,13 @@ function App() {
     if (role === 'anggota' && n.kategori === 'Tagihan' && n.berulang && myApprovedThisPeriod) return false;
     return true;
   });
+  const filteredNotifikasi = visibleNotifikasi.filter(function (n) {
+    const isRead = readNotifIds.includes(n.id);
+    if (notifFilter === 'belum') return !isRead;
+    if (notifFilter === 'sudah') return isRead;
+    return true;
+  });
+  const unreadCount = visibleNotifikasi.filter(function (n) { return !readNotifIds.includes(n.id); }).length;
 
   const filteredWarga = wargaList.filter(function (w) { return w.namaKK.toLowerCase().includes(searchWarga.toLowerCase()); });
   const sortedKegiatan = kegiatanList.filter(function (k) { return filterPokja === 'Semua' || k.pokja === filterPokja; })
@@ -493,6 +511,7 @@ function App() {
     { key: 'dashboard', label: 'Beranda', icon: IconHome },
     { key: 'warga', label: role === 'pengurus' ? 'Warga' : 'Keluarga', icon: IconUsers },
     { key: 'kegiatan', label: 'Kegiatan', icon: IconCalendar },
+    { key: 'notifikasi', label: 'Notifikasi', icon: IconBell },
     { key: 'keuangan', label: 'Keuangan', icon: IconWallet },
     { key: 'chat', label: 'Chat', icon: IconMessageCircle }
   ];
@@ -532,6 +551,46 @@ function App() {
     return Object.assign({}, prev, { anggota: anggota });
   });
   const removeMemberRow = (idx) => setWargaForm(function (prev) { return Object.assign({}, prev, { anggota: prev.anggota.filter(function (_, i) { return i !== idx; }) }); });
+  const exportAnggota = () => {
+    const rows = wargaForm.anggota.map(function (m) {
+      return { 'Nama': m.nama, 'Jenis Kelamin (L/P)': m.jk, 'Tanggal Lahir': m.tglLahir, 'Status Dalam Keluarga': m.statusKeluarga, 'Status Kawin': m.statusKawin, 'Pendidikan': m.pendidikan, 'Pekerjaan': m.pekerjaan };
+    });
+    downloadExcel(rows, 'Anggota_' + (wargaForm.namaKK || 'Keluarga').replace(/\s+/g, '_') + '.xlsx', 'Anggota Keluarga');
+    showToast('Data anggota berhasil diexport');
+  };
+  const handleImportAnggota = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function (evt) {
+      try {
+        const data = new Uint8Array(evt.target.result);
+        const wb = XLSX.read(data, { type: 'array' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const json = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+        const mapped = json.map(function (row) {
+          const jkRaw = String(getField(row, 'Jenis Kelamin (L/P)') || 'L').toUpperCase();
+          return {
+            id: nextId(),
+            nama: String(getField(row, 'Nama') || '').trim(),
+            jk: jkRaw.indexOf('P') === 0 ? 'P' : 'L',
+            tglLahir: parseExcelDate(getField(row, 'Tanggal Lahir')),
+            statusKeluarga: String(getField(row, 'Status Dalam Keluarga') || ''),
+            statusKawin: String(getField(row, 'Status Kawin') || 'Belum Kawin'),
+            pendidikan: String(getField(row, 'Pendidikan') || ''),
+            pekerjaan: String(getField(row, 'Pekerjaan') || '')
+          };
+        }).filter(function (m) { return m.nama; });
+        if (mapped.length === 0) { showToast('Tidak ada data terbaca. Cek kolom "Nama".', 'error'); return; }
+        setWargaForm(function (prev) { return Object.assign({}, prev, { anggota: prev.anggota.concat(mapped) }); });
+        showToast(mapped.length + ' anggota berhasil diimport');
+      } catch (err) {
+        showToast('Gagal membaca file. Pastikan format .xlsx/.xls/.csv valid.', 'error');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    e.target.value = '';
+  };
 
   const exportWarga = () => {
     const rows = wargaList.map(function (w) {
@@ -552,11 +611,23 @@ function App() {
   };
 
   const openAddKegiatan = () => { setKegiatanForm(emptyKegiatanForm()); setKegiatanModal('add'); };
-  const openEditKegiatan = (k) => { setKegiatanForm(Object.assign({}, k)); setKegiatanModal('edit'); };
+  const openEditKegiatan = (k) => { setKegiatanForm(Object.assign({ kirimNotifikasi: false }, k)); setKegiatanModal('edit'); };
   const saveKegiatan = () => {
     if (!kegiatanForm.nama.trim()) { showToast('Nama kegiatan wajib diisi', 'error'); return; }
-    if (kegiatanModal === 'add') { setKegiatanList(function (prev) { return prev.concat([Object.assign({}, kegiatanForm, { id: nextId() })]); }); showToast('Kegiatan berhasil ditambahkan'); }
-    else { setKegiatanList(function (prev) { return prev.map(function (k) { return k.id === kegiatanForm.id ? kegiatanForm : k; }); }); showToast('Kegiatan berhasil diperbarui'); }
+    if (kegiatanModal === 'add') {
+      setKegiatanList(function (prev) { return prev.concat([Object.assign({}, kegiatanForm, { id: nextId() })]); });
+      if (kegiatanForm.kirimNotifikasi && chatDb) {
+        chatDb.collection('dasawisma_notifikasi').add({
+          judul: kegiatanForm.nama, pesan: kegiatanForm.keterangan || (kegiatanForm.tempat ? 'di ' + kegiatanForm.tempat : ''),
+          kategori: 'Kegiatan', tanggal: kegiatanForm.tanggal, berulang: false,
+          createdBy: currentUser.namaLengkap, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
+      showToast('Kegiatan berhasil ditambahkan');
+    } else {
+      setKegiatanList(function (prev) { return prev.map(function (k) { return k.id === kegiatanForm.id ? kegiatanForm : k; }); });
+      showToast('Kegiatan berhasil diperbarui');
+    }
     setKegiatanModal(null);
   };
   const exportKegiatan = () => {
@@ -635,16 +706,34 @@ function App() {
       .catch(function () { showToast('Gagal menyimpan, cek koneksi internet', 'error'); });
   };
 
-  const openNotif = () => { setNotifForm(emptyNotifForm()); setNotifModal(true); };
-  const saveNotif = () => {
-    if (!notifForm.judul.trim()) { showToast('Judul wajib diisi', 'error'); return; }
+  const openPengumuman = () => { setPengumumanForm(emptyPengumumanForm()); setPengumumanModal(true); };
+  const savePengumuman = () => {
+    if (!pengumumanForm.judul.trim()) { showToast('Judul wajib diisi', 'error'); return; }
+    if (!pengumumanForm.kirimNotifikasi) { showToast('Pengumuman hanya tersimpan jika notifikasi diaktifkan', 'error'); return; }
     if (!chatDb) { showToast('Firebase belum aktif, lihat README', 'error'); return; }
     chatDb.collection('dasawisma_notifikasi').add({
-      judul: notifForm.judul.trim(), pesan: notifForm.pesan, kategori: notifForm.kategori,
-      tanggal: notifForm.tanggal, berulang: notifForm.berulang,
+      judul: pengumumanForm.judul.trim(), pesan: pengumumanForm.pesan, kategori: 'Pengumuman',
+      tanggal: pengumumanForm.tanggal, berulang: false,
       createdBy: currentUser.namaLengkap, createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    }).then(function () { showToast('Notifikasi berhasil dibuat'); setNotifModal(false); })
-      .catch(function () { showToast('Gagal membuat notifikasi', 'error'); });
+    }).then(function () { showToast('Pengumuman berhasil dibuat'); setPengumumanModal(false); })
+      .catch(function () { showToast('Gagal membuat pengumuman', 'error'); });
+  };
+
+  const openTagihanNotif = () => { setTagihanNotifForm(emptyTagihanNotifForm()); setTagihanNotifModal(true); };
+  const saveTagihanNotif = () => {
+    if (!tagihanNotifForm.judul.trim()) { showToast('Judul wajib diisi', 'error'); return; }
+    if (!tagihanNotifForm.kirimNotifikasi) { showToast('Tagihan hanya tersimpan jika notifikasi diaktifkan', 'error'); return; }
+    if (!chatDb) { showToast('Firebase belum aktif, lihat README', 'error'); return; }
+    chatDb.collection('dasawisma_notifikasi').add({
+      judul: tagihanNotifForm.judul.trim(), pesan: tagihanNotifForm.pesan, kategori: 'Tagihan',
+      tanggal: tagihanNotifForm.tanggal, berulang: tagihanNotifForm.berulang,
+      createdBy: currentUser.namaLengkap, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    }).then(function () { showToast('Tagihan berhasil dibuat'); setTagihanNotifModal(false); })
+      .catch(function () { showToast('Gagal membuat tagihan', 'error'); });
+  };
+
+  const markAllNotifRead = (list) => {
+    setReadNotifIds(function (prev) { return Array.from(new Set(prev.concat(list.map(function (n) { return n.id; })))); });
   };
 
   const openPengajuan = () => { setPengajuanForm(emptyPengajuanForm()); setPengajuanModal(true); };
@@ -814,6 +903,14 @@ function App() {
         <div className="flex justify-between items-center mb-2">
           <label className="text-xs font-medium text-slate-500">Anggota Keluarga ({wargaForm.anggota.length})</label>
           <button onClick={addMemberRow} className="text-xs text-rose-600 font-medium flex items-center gap-1"><IconPlus className="w-3 h-3" />Tambah</button>
+        </div>
+        <div className="flex gap-2 mb-2">
+          <button onClick={exportAnggota} className="flex-1 flex items-center justify-center gap-1 bg-slate-50 border border-slate-200 rounded-lg py-1.5 text-xs font-medium text-slate-600"><IconDownload className="w-3 h-3" />Export</button>
+          <label className="flex-1 flex items-center justify-center gap-1 bg-slate-50 border border-slate-200 rounded-lg py-1.5 text-xs font-medium text-slate-600 cursor-pointer">
+            <IconUpload className="w-3 h-3" />Import
+            <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImportAnggota} />
+          </label>
+          <button onClick={function () { downloadTemplate(ANGGOTA_HEADERS, 'Template_Anggota_Keluarga.xlsx', 'Template'); }} className="text-xs text-slate-400 underline shrink-0 px-1">Template</button>
         </div>
         <div className="space-y-2">
           {wargaForm.anggota.map(function (m, idx) {
@@ -999,9 +1096,6 @@ function App() {
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={function () { setPage('notifikasi'); }} className="w-9 h-9 flex items-center justify-center rounded-full bg-slate-50 text-slate-500">
-              <IconBell className="w-4 h-4" />
-            </button>
             <button onClick={openPengaturan} className="w-9 h-9 flex items-center justify-center rounded-full bg-slate-50 text-slate-500">
               <IconSettings className="w-4 h-4" />
             </button>
@@ -1095,30 +1189,38 @@ function App() {
                   <button onClick={requestNotifPermission} className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-full font-medium">Aktifkan Notifikasi</button>
                 </div>
               )}
-              {role === 'pengurus' && (
-                <button onClick={openNotif} className="w-full bg-rose-600 text-white font-semibold py-2.5 rounded-xl flex items-center justify-center gap-1.5 text-sm">
-                  <IconPlus className="w-4 h-4" />Buat Notifikasi
-                </button>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex gap-2">
+                  {[['semua', 'Semua'], ['belum', 'Belum Dibaca'], ['sudah', 'Sudah Dibaca']].map(function (pair) {
+                    return <button key={pair[0]} onClick={function () { setNotifFilter(pair[0]); }} className={'px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap ' + (notifFilter === pair[0] ? 'bg-rose-600 text-white' : 'bg-white border border-slate-200 text-slate-500')}>{pair[1]}{pair[0] === 'belum' && unreadCount > 0 ? ' (' + unreadCount + ')' : ''}</button>;
+                  })}
+                </div>
+              </div>
+              {unreadCount > 0 && (
+                <button onClick={function () { markAllNotifRead(visibleNotifikasi); }} className="text-xs text-rose-600 font-medium">Tandai semua sudah dibaca</button>
               )}
               <div className="space-y-2.5">
-                {visibleNotifikasi.length === 0 ? (
-                  <div className="text-center py-10 text-slate-400 text-sm">Belum ada notifikasi</div>
-                ) : visibleNotifikasi.map(function (n) {
+                {filteredNotifikasi.length === 0 ? (
+                  <div className="text-center py-10 text-slate-400 text-sm">{notifFilter === 'semua' ? 'Belum ada notifikasi' : 'Tidak ada notifikasi di kategori ini'}</div>
+                ) : filteredNotifikasi.map(function (n) {
+                  const isRead = readNotifIds.includes(n.id);
                   const clickable = role === 'pengurus' && n.kategori === 'Tagihan' && n.tagihanRef;
                   return (
                     <div key={n.id} onClick={function () {
+                      markNotifRead(n.id);
                       if (!clickable) return;
                       const t = tagihanList.find(function (x) { return x.id === n.tagihanRef; });
                       if (t && t.status === 'pending') openKlasifikasi(t);
                       else showToast('Pengajuan ini sudah diproses', 'error');
-                    }} className={'bg-white rounded-2xl p-4 border border-slate-100 ' + (clickable ? 'cursor-pointer active:bg-slate-50' : '')}>
+                    }} className={'bg-white rounded-2xl p-4 border cursor-pointer active:bg-slate-50 ' + (isRead ? 'border-slate-100' : 'border-rose-200')}>
                       <div className="flex justify-between items-start gap-2">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5">
+                            {!isRead && <span className="w-1.5 h-1.5 rounded-full bg-rose-600 shrink-0"></span>}
                             <span className={'text-xs px-2 py-0.5 rounded-full font-medium ' + (n.kategori === 'Tagihan' ? 'bg-amber-50 text-amber-600' : n.kategori === 'Kegiatan' ? 'bg-blue-50 text-blue-600' : 'bg-rose-50 text-rose-600')}>{n.kategori}</span>
                             {n.berulang && <span className="text-xs text-slate-400">berulang</span>}
                           </div>
-                          <p className="text-sm font-medium text-slate-800 mt-1">{n.judul}</p>
+                          <p className={'text-sm mt-1 ' + (isRead ? 'font-medium text-slate-700' : 'font-semibold text-slate-900')}>{n.judul}</p>
                           {n.pesan && <p className="text-xs text-slate-500 mt-0.5">{n.pesan}</p>}
                           <p className="text-xs text-slate-400 mt-1">{n.tanggal ? formatTanggal(n.tanggal) : ''} · oleh {n.createdBy}</p>
                         </div>
@@ -1200,9 +1302,14 @@ function App() {
           {page === 'kegiatan' && (
             <>
               {role === 'pengurus' && (
-                <button onClick={openAddKegiatan} className="w-full bg-rose-600 text-white font-semibold py-2.5 rounded-xl flex items-center justify-center gap-1.5 text-sm">
-                  <IconPlus className="w-4 h-4" />Tambah Kegiatan
-                </button>
+                <div className="flex gap-2">
+                  <button onClick={openAddKegiatan} className="flex-1 bg-rose-600 text-white font-semibold py-2.5 rounded-xl flex items-center justify-center gap-1.5 text-sm">
+                    <IconPlus className="w-4 h-4" />Kegiatan
+                  </button>
+                  <button onClick={openPengumuman} className="flex-1 bg-slate-800 text-white font-semibold py-2.5 rounded-xl flex items-center justify-center gap-1.5 text-sm">
+                    <IconBell className="w-4 h-4" />Pengumuman
+                  </button>
+                </div>
               )}
               {role === 'pengurus' && (
                 <>
@@ -1260,43 +1367,6 @@ function App() {
                 <span className="text-lg font-bold">{formatRupiah(saldoKas)}</span>
               </div>
 
-              <div className="bg-white rounded-2xl p-4 border border-slate-100">
-                <p className="text-sm font-semibold text-slate-700 mb-2">Tagihan Periode Ini · {now.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}</p>
-                {role === 'anggota' ? (
-                  myTagihanStatus === 'approved' ? (
-                    <div className="flex items-center gap-2 bg-emerald-50 rounded-xl p-3">
-                      <IconCheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
-                      <p className="text-xs text-emerald-700 font-medium">Sudah Bayar untuk periode ini</p>
-                    </div>
-                  ) : myTagihanStatus === 'pending' ? (
-                    <div className="flex items-center gap-2 bg-amber-50 rounded-xl p-3">
-                      <IconAlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
-                      <p className="text-xs text-amber-700 font-medium">Bukti pembayaran menunggu persetujuan pengurus</p>
-                    </div>
-                  ) : (
-                    <button onClick={openPengajuan} className="w-full bg-rose-600 text-white font-semibold py-2.5 rounded-xl text-sm flex items-center justify-center gap-1.5">
-                      <IconUpload className="w-4 h-4" />Ajukan Pembayaran / Upload Bukti
-                    </button>
-                  )
-                ) : (
-                  pendingTagihan.length === 0 ? (
-                    <p className="text-xs text-slate-400 text-center py-3">Tidak ada pengajuan baru</p>
-                  ) : pendingTagihan.map(function (t) {
-                    return (
-                      <div key={t.id} className="flex items-center gap-3 py-2.5 border-b border-slate-50 last:border-0">
-                        {t.buktiDataUrl && <img src={t.buktiDataUrl} className="w-12 h-12 rounded-lg object-cover shrink-0" alt="bukti" />}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-800 truncate">{t.namaPengaju}</p>
-                          <p className="text-xs text-slate-400">{formatTanggal(t.tanggal)} · {formatRupiah(t.nominal)}</p>
-                          {t.periode !== currentPeriode && <p className="text-xs text-amber-600 mt-0.5">periode lama</p>}
-                        </div>
-                        <button onClick={function () { openKlasifikasi(t); }} className="text-xs bg-rose-600 text-white px-3 py-1.5 rounded-full font-medium shrink-0">Proses</button>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-
               <div className="flex items-center justify-between bg-white rounded-2xl border border-slate-100 px-2 py-2">
                 <button onClick={prevBulan} className="w-9 h-9 flex items-center justify-center rounded-full text-slate-500 active:bg-slate-50">
                   <IconChevronLeft className="w-4 h-4" />
@@ -1318,6 +1388,32 @@ function App() {
                 </div>
               </div>
 
+              {role === 'anggota' && !myWarga && (
+                <div className="bg-white rounded-2xl p-4 border border-slate-100 text-center text-sm text-slate-400">Data keluarga belum tertaut, hubungi pengurus untuk mengajukan pembayaran iuran.</div>
+              )}
+
+              {role === 'anggota' && myWarga && (
+                <div className="bg-white rounded-2xl p-4 border border-slate-100">
+                  <p className="text-sm font-semibold text-slate-700 mb-2">Tagihan Iuran Saya ({currentPeriode})</p>
+                  {myTagihanStatus === 'approved' ? (
+                    <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 rounded-xl px-3 py-2.5 text-xs font-medium">
+                      <IconCheckCircle className="w-4 h-4" />Iuran bulan ini sudah tercatat, terima kasih!
+                    </div>
+                  ) : myTagihanStatus === 'pending' ? (
+                    <div className="flex items-center gap-2 bg-amber-50 text-amber-700 rounded-xl px-3 py-2.5 text-xs font-medium">
+                      <IconAlertCircle className="w-4 h-4" />Menunggu verifikasi pengurus
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-xs text-slate-400 mb-2">Belum ada pembayaran tercatat untuk bulan ini.</p>
+                      <button onClick={openPengajuan} className="w-full bg-rose-600 text-white font-semibold py-2.5 rounded-xl flex items-center justify-center gap-1.5 text-sm">
+                        <IconUpload className="w-4 h-4" />Ajukan Pembayaran Iuran
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+
               {role === 'pengurus' && (
                 <>
                   <button onClick={openAddKeuangan} className="w-full bg-rose-600 text-white font-semibold py-2.5 rounded-xl flex items-center justify-center gap-1.5 text-sm">
@@ -1325,6 +1421,9 @@ function App() {
                   </button>
                   <button onClick={openIuran} className="w-full bg-emerald-600 text-white font-semibold py-2.5 rounded-xl flex items-center justify-center gap-1.5 text-sm">
                     <IconPlus className="w-4 h-4" />Catat Iuran Rutin (PKK + Posyandu + Dawis)
+                  </button>
+                  <button onClick={openTagihanNotif} className="w-full bg-slate-800 text-white font-semibold py-2.5 rounded-xl flex items-center justify-center gap-1.5 text-sm">
+                    <IconBell className="w-4 h-4" />Buat Tagihan untuk Warga
                   </button>
                   <div className="flex gap-2">
                     <button onClick={exportKeuangan} className="flex-1 flex items-center justify-center gap-1.5 bg-white border border-slate-200 rounded-xl py-2 text-xs font-medium text-slate-600">
@@ -1336,6 +1435,25 @@ function App() {
                     </label>
                   </div>
                   <button onClick={function () { downloadTemplate(KEUANGAN_HEADERS, 'Template_Data_Keuangan.xlsx', 'Template'); }} className="text-xs text-slate-400 underline w-full text-center">Unduh template Excel</button>
+
+                  {pendingTagihan.length > 0 && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+                      <p className="text-sm font-semibold text-amber-700 mb-2">Tagihan Menunggu Persetujuan ({pendingTagihan.length})</p>
+                      <div className="space-y-2">
+                        {pendingTagihan.map(function (t) {
+                          return (
+                            <button key={t.id} onClick={function () { openKlasifikasi(t); }} className="w-full flex items-center justify-between gap-2 bg-white rounded-xl px-3 py-2.5 text-left">
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium text-slate-800 truncate">{t.namaPengaju}</p>
+                                <p className="text-xs text-slate-400">{formatTanggal(t.tanggal)}</p>
+                              </div>
+                              <span className="text-sm font-bold text-slate-800 shrink-0">{formatRupiah(t.nominal)}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
 
@@ -1600,7 +1718,43 @@ function App() {
                   <label className="text-xs font-medium text-slate-500">Keterangan</label>
                   <textarea value={kegiatanForm.keterangan} onChange={function (e) { setKegiatanForm(Object.assign({}, kegiatanForm, { keterangan: e.target.value })); }} rows={2} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
                 </div>
+                {kegiatanModal === 'add' && (
+                  <label className="flex items-center gap-2 text-xs text-slate-600 bg-slate-50 rounded-xl p-3">
+                    <input type="checkbox" checked={kegiatanForm.kirimNotifikasi} onChange={function (e) { setKegiatanForm(Object.assign({}, kegiatanForm, { kirimNotifikasi: e.target.checked })); }} />
+                    Aktifkan Notifikasi (kirim ke semua warga saat disimpan)
+                  </label>
+                )}
                 <button onClick={saveKegiatan} className="w-full bg-rose-600 text-white font-semibold py-3 rounded-xl">Simpan Kegiatan</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {pengumumanModal && (
+          <div className="fixed inset-0 z-40 flex items-end justify-center" style={{ backgroundColor: 'rgba(15,23,42,0.5)' }} onClick={function () { setPengumumanModal(false); }}>
+            <div className="w-full max-w-md bg-white rounded-t-3xl overflow-y-auto" style={{ maxHeight: '90vh' }} onClick={function (e) { e.stopPropagation(); }}>
+              <div className="sticky top-0 bg-white px-5 pt-4 pb-3 border-b border-slate-100 flex justify-between items-center">
+                <p className="font-bold text-slate-800">Buat Pengumuman</p>
+                <button onClick={function () { setPengumumanModal(false); }}><IconX className="w-5 h-5 text-slate-400" /></button>
+              </div>
+              <div className="p-5 space-y-4">
+                <div>
+                  <label className="text-xs font-medium text-slate-500">Judul</label>
+                  <input value={pengumumanForm.judul} onChange={function (e) { setPengumumanForm(Object.assign({}, pengumumanForm, { judul: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-500">Pesan</label>
+                  <textarea value={pengumumanForm.pesan} onChange={function (e) { setPengumumanForm(Object.assign({}, pengumumanForm, { pesan: e.target.value })); }} rows={3} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-500">Tanggal</label>
+                  <input type="date" value={pengumumanForm.tanggal} onChange={function (e) { setPengumumanForm(Object.assign({}, pengumumanForm, { tanggal: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+                </div>
+                <label className="flex items-center gap-2 text-xs text-slate-600 bg-slate-50 rounded-xl p-3">
+                  <input type="checkbox" checked={pengumumanForm.kirimNotifikasi} onChange={function (e) { setPengumumanForm(Object.assign({}, pengumumanForm, { kirimNotifikasi: e.target.checked })); }} />
+                  Aktifkan Notifikasi (kirim ke semua warga)
+                </label>
+                <button onClick={savePengumuman} className="w-full bg-rose-600 text-white font-semibold py-3 rounded-xl">Simpan Pengumuman</button>
               </div>
             </div>
           </div>
@@ -1760,36 +1914,35 @@ function App() {
           </div>
         )}
 
-        {notifModal && (
-          <div className="fixed inset-0 z-40 flex items-end justify-center" style={{ backgroundColor: 'rgba(15,23,42,0.5)' }} onClick={function () { setNotifModal(false); }}>
+        {tagihanNotifModal && (
+          <div className="fixed inset-0 z-40 flex items-end justify-center" style={{ backgroundColor: 'rgba(15,23,42,0.5)' }} onClick={function () { setTagihanNotifModal(false); }}>
             <div className="w-full max-w-md bg-white rounded-t-3xl overflow-y-auto" style={{ maxHeight: '90vh' }} onClick={function (e) { e.stopPropagation(); }}>
               <div className="sticky top-0 bg-white px-5 pt-4 pb-3 border-b border-slate-100 flex justify-between items-center">
-                <p className="font-bold text-slate-800">Buat Notifikasi</p>
-                <button onClick={function () { setNotifModal(false); }}><IconX className="w-5 h-5 text-slate-400" /></button>
+                <p className="font-bold text-slate-800">Buat Tagihan</p>
+                <button onClick={function () { setTagihanNotifModal(false); }}><IconX className="w-5 h-5 text-slate-400" /></button>
               </div>
               <div className="p-5 space-y-4">
-                <div className="flex gap-2">
-                  {NOTIF_KATEGORI.map(function (k) {
-                    return <button key={k} onClick={function () { setNotifForm(Object.assign({}, notifForm, { kategori: k })); }} className={'flex-1 py-2 rounded-xl text-xs font-medium ' + (notifForm.kategori === k ? 'bg-rose-600 text-white' : 'bg-slate-100 text-slate-500')}>{k}</button>;
-                  })}
-                </div>
                 <div>
                   <label className="text-xs font-medium text-slate-500">Judul</label>
-                  <input value={notifForm.judul} onChange={function (e) { setNotifForm(Object.assign({}, notifForm, { judul: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+                  <input value={tagihanNotifForm.judul} onChange={function (e) { setTagihanNotifForm(Object.assign({}, tagihanNotifForm, { judul: e.target.value })); }} placeholder="cth. Tagihan Iuran Bulan Ini" className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-slate-500">Pesan</label>
-                  <textarea value={notifForm.pesan} onChange={function (e) { setNotifForm(Object.assign({}, notifForm, { pesan: e.target.value })); }} rows={3} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+                  <textarea value={tagihanNotifForm.pesan} onChange={function (e) { setTagihanNotifForm(Object.assign({}, tagihanNotifForm, { pesan: e.target.value })); }} rows={3} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-slate-500">Tanggal</label>
-                  <input type="date" value={notifForm.tanggal} onChange={function (e) { setNotifForm(Object.assign({}, notifForm, { tanggal: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+                  <label className="text-xs font-medium text-slate-500">Batas Tanggal Bayar</label>
+                  <input type="date" value={tagihanNotifForm.tanggal} onChange={function (e) { setTagihanNotifForm(Object.assign({}, tagihanNotifForm, { tanggal: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
                 </div>
-                <label className="flex items-center gap-2 text-xs text-slate-600">
-                  <input type="checkbox" checked={notifForm.berulang} onChange={function (e) { setNotifForm(Object.assign({}, notifForm, { berulang: e.target.checked })); }} />
-                  Notifikasi berulang (setiap bulan, bukan sekali saja)
+                <label className="flex items-center gap-2 text-xs text-slate-600 bg-slate-50 rounded-xl p-3">
+                  <input type="checkbox" checked={tagihanNotifForm.berulang} onChange={function (e) { setTagihanNotifForm(Object.assign({}, tagihanNotifForm, { berulang: e.target.checked })); }} />
+                  Tagihan berulang (setiap bulan, bukan sekali saja)
                 </label>
-                <button onClick={saveNotif} className="w-full bg-rose-600 text-white font-semibold py-3 rounded-xl">Kirim Notifikasi</button>
+                <label className="flex items-center gap-2 text-xs text-slate-600 bg-slate-50 rounded-xl p-3">
+                  <input type="checkbox" checked={tagihanNotifForm.kirimNotifikasi} onChange={function (e) { setTagihanNotifForm(Object.assign({}, tagihanNotifForm, { kirimNotifikasi: e.target.checked })); }} />
+                  Aktifkan Notifikasi (kirim ke semua warga)
+                </label>
+                <button onClick={saveTagihanNotif} className="w-full bg-rose-600 text-white font-semibold py-3 rounded-xl">Simpan Tagihan</button>
               </div>
             </div>
           </div>
