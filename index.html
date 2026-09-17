@@ -60,13 +60,12 @@ const IconMessageCircle = (p) => <Icon {...p}><path d="M21 11.5a8.38 8.38 0 0 1-
 const IconSend = (p) => <Icon {...p}><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></Icon>;
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAwhF2B1fU_06xDir1lJ6Pa4-3KkIecKu4",
-  authDomain: "dasawisma-digital.firebaseapp.com",
-  projectId: "dasawisma-digital",
-  storageBucket: "dasawisma-digital.firebasestorage.app",
-  messagingSenderId: "438802301132",
-  appId: "1:438802301132:web:aaa3518cceae7198e9c269",
-  measurementId: "G-7WPBDH6DW9"
+  apiKey: "GANTI_API_KEY",
+  authDomain: "GANTI.firebaseapp.com",
+  projectId: "GANTI_PROJECT_ID",
+  storageBucket: "GANTI.appspot.com",
+  messagingSenderId: "GANTI_SENDER_ID",
+  appId: "GANTI_APP_ID"
 };
 
 let chatDb = null;
@@ -144,9 +143,12 @@ const emptyWargaForm = () => ({
   kriteriaRumah: 'Sehat', jamban: 'Ya', sumberAir: 'PDAM', sampah: 'Ya', limbah: 'Ya',
   stikerP4K: 'Tidak', makanan: 'Beras', up2k: 'Tidak', jenisUsaha: ''
 });
-const emptyKegiatanForm = () => ({ id: null, nama: '', tanggal: '', pokja: 'Umum', peserta: 0, tempat: '', keterangan: '', kirimNotifikasi: true });
-const emptyPengumumanForm = () => ({ judul: '', pesan: '', tanggal: '', kirimNotifikasi: true });
-const emptyTagihanNotifForm = () => ({ judul: '', pesan: '', tanggal: '', berulang: false, kirimNotifikasi: true });
+const emptyKegiatanForm = () => ({
+  id: null, jenisInfo: 'Kegiatan',
+  nama: '', tanggal: '', pokja: 'Umum', peserta: 0, tempat: '', keterangan: '',
+  judul: '', pesan: '', berulang: false,
+  kirimNotifikasi: true
+});
 const emptyKeuanganForm = () => ({ id: null, tanggal: '', jenis: 'Masuk', kategori: '', nominal: 0, keterangan: '', attachment: null });
 const emptyIuranForm = () => ({ nama: '', tanggal: '', attachment: null, pkk: 5000, posyandu: 2000, dawis: 7000, arisan: 0, lainLain: 0 });
 const emptyPengajuanForm = () => ({ nominal: 0, tanggal: '', bukti: null });
@@ -202,6 +204,20 @@ const downloadTemplate = (headers, filename, sheetName) => {
   a.href = url; a.download = filename; a.click();
   URL.revokeObjectURL(url);
 };
+// sheets: [{ rows: [...], name: 'Sheet1' }, { rows: [...], name: 'Sheet2' }]
+const downloadExcelMultiSheet = (sheets, filename) => {
+  const wb = XLSX.utils.book_new();
+  sheets.forEach(function (s) {
+    const ws = s.rows.length ? XLSX.utils.json_to_sheet(s.rows) : XLSX.utils.aoa_to_sheet([s.headers || []]);
+    XLSX.utils.book_append_sheet(wb, ws, s.name);
+  });
+  const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  const blob = new Blob([out], { type: 'application/octet-stream' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+};
 
 function App() {
   const [users, setUsers] = useState(function () { return loadPersisted('dasawisma_users', seedUsers); });
@@ -242,10 +258,6 @@ function App() {
   const [iuranModal, setIuranModal] = useState(false);
   const [iuranForm, setIuranForm] = useState(emptyIuranForm());
 
-  const [pengumumanModal, setPengumumanModal] = useState(false);
-  const [pengumumanForm, setPengumumanForm] = useState(emptyPengumumanForm());
-  const [tagihanNotifModal, setTagihanNotifModal] = useState(false);
-  const [tagihanNotifForm, setTagihanNotifForm] = useState(emptyTagihanNotifForm());
   const [pengajuanModal, setPengajuanModal] = useState(false);
   const [pengajuanForm, setPengajuanForm] = useState(emptyPengajuanForm());
   const [klasifikasiModal, setKlasifikasiModal] = useState(null);
@@ -263,6 +275,37 @@ function App() {
   };
 
   useEffect(function () { safeSetItem('dasawisma_users', users); }, [users]);
+
+  // Akun (login) disinkronkan lewat Firebase supaya akun warga yang dibuat pengurus
+  // bisa dipakai login dari HP warga sendiri, bukan cuma tersimpan lokal di HP pengurus.
+  useEffect(function () {
+    if (!chatDb) return;
+    const unsub = chatDb.collection('dasawisma_users').onSnapshot(function (snapshot) {
+      if (snapshot.empty) {
+        const batch = chatDb.batch();
+        loadPersisted('dasawisma_users', seedUsers).forEach(function (u) {
+          const ref = chatDb.collection('dasawisma_users').doc('u-' + String(u.username).toLowerCase());
+          batch.set(ref, { namaLengkap: u.namaLengkap, username: u.username, password: u.password, role: u.role, wargaId: u.wargaId || null });
+        });
+        batch.commit().catch(function () {});
+        return;
+      }
+      const items = snapshot.docs.map(function (doc) { return Object.assign({ id: doc.id }, doc.data()); });
+      setUsers(items);
+    }, function () {});
+    return function () { unsub(); };
+  }, []);
+
+  // Kalau sesi login sedang aktif, selaraskan dengan data akun terbaru (mis. setelah akun
+  // lama bermigrasi ke Firebase dan id-nya berubah, atau role/password diubah dari HP lain).
+  useEffect(function () {
+    if (!currentUser || users.length === 0) return;
+    const match = users.find(function (u) { return u.username === currentUser.username; });
+    if (match && (match.id !== currentUser.id || match.password !== currentUser.password || match.role !== currentUser.role || match.namaLengkap !== currentUser.namaLengkap || match.wargaId !== currentUser.wargaId)) {
+      setCurrentUser(match);
+    }
+  }, [users]);
+
   useEffect(function () { safeSetItem('dasawisma_warga', wargaList); }, [wargaList]);
   useEffect(function () { safeSetItem('dasawisma_kegiatan', kegiatanList); }, [kegiatanList]);
   useEffect(function () {
@@ -390,10 +433,17 @@ function App() {
     }
     const updated = Object.assign({}, currentUser, { namaLengkap: akunForm.namaLengkap.trim(), username: akunForm.username.trim() });
     if (akunForm.password) updated.password = akunForm.password;
-    setUsers(function (prev) { return prev.map(function (u) { return u.id === currentUser.id ? updated : u; }); });
+    if (chatDb) {
+      chatDb.collection('dasawisma_users').doc(String(currentUser.id)).update({
+        namaLengkap: updated.namaLengkap, username: updated.username, password: updated.password
+      }).then(function () { showToast('Akun berhasil diperbarui'); })
+        .catch(function () { showToast('Gagal menyimpan ke server, cek koneksi internet', 'error'); });
+    } else {
+      setUsers(function (prev) { return prev.map(function (u) { return u.id === currentUser.id ? updated : u; }); });
+      showToast('Akun berhasil diperbarui');
+    }
     setCurrentUser(updated);
     setAkunForm(function (prev) { return Object.assign({}, prev, { password: '' }); });
-    showToast('Akun berhasil diperbarui');
   };
   const saveMyWarga = () => {
     if (!wargaForm.namaKK.trim()) { showToast('Nama kepala keluarga wajib diisi', 'error'); return; }
@@ -411,25 +461,33 @@ function App() {
   };
   const saveAkunWarga = () => {
     if (!akunWargaForm.username.trim() || !akunWargaForm.password) { showToast('Username dan password wajib diisi', 'error'); return; }
+    if (!chatDb) {
+      showToast('Firebase belum aktif. Akun warga wajib tersimpan di Firebase agar bisa login dari HP warga sendiri — lihat README untuk setup.', 'error');
+      return;
+    }
     if (akunWargaModal.mode === 'create') {
       if (users.some(function (u) { return u.username.toLowerCase() === akunWargaForm.username.toLowerCase(); })) {
         showToast('Username sudah digunakan', 'error'); return;
       }
       const warga = wargaList.find(function (w) { return w.id === akunWargaModal.wargaId; });
-      const newUser = {
-        id: nextId(), namaLengkap: warga.namaKK, username: akunWargaForm.username.trim(),
+      chatDb.collection('dasawisma_users').add({
+        namaLengkap: warga.namaKK, username: akunWargaForm.username.trim(),
         password: akunWargaForm.password, role: akunWargaForm.role, wargaId: warga.id
-      };
-      setUsers(function (prev) { return prev.concat([newUser]); });
-      showToast('Akun ' + (akunWargaForm.role === 'pengurus' ? 'Pengurus' : 'Anggota') + ' berhasil dibuat untuk ' + warga.namaKK);
+      }).then(function () {
+        showToast('Akun ' + (akunWargaForm.role === 'pengurus' ? 'Pengurus' : 'Anggota') + ' berhasil dibuat untuk ' + warga.namaKK);
+        setAkunWargaModal(null);
+      }).catch(function () { showToast('Gagal membuat akun, cek koneksi internet', 'error'); });
     } else {
       if (users.some(function (u) { return u.id !== akunWargaModal.userId && u.username.toLowerCase() === akunWargaForm.username.toLowerCase(); })) {
         showToast('Username sudah digunakan', 'error'); return;
       }
-      setUsers(function (prev) { return prev.map(function (u) { return u.id === akunWargaModal.userId ? Object.assign({}, u, { username: akunWargaForm.username.trim(), password: akunWargaForm.password, role: akunWargaForm.role }) : u; }); });
-      showToast('Username & password berhasil direset');
+      chatDb.collection('dasawisma_users').doc(String(akunWargaModal.userId)).update({
+        username: akunWargaForm.username.trim(), password: akunWargaForm.password, role: akunWargaForm.role
+      }).then(function () {
+        showToast('Username & password berhasil direset');
+        setAkunWargaModal(null);
+      }).catch(function () { showToast('Gagal reset akun, cek koneksi internet', 'error'); });
     }
-    setAkunWargaModal(null);
   };
 
   const myWarga = currentUser && currentUser.wargaId ? wargaList.find(function (w) { return w.id === currentUser.wargaId; }) : null;
@@ -511,8 +569,8 @@ function App() {
     { key: 'dashboard', label: 'Beranda', icon: IconHome },
     { key: 'warga', label: role === 'pengurus' ? 'Warga' : 'Keluarga', icon: IconUsers },
     { key: 'kegiatan', label: 'Kegiatan', icon: IconCalendar },
-    { key: 'notifikasi', label: 'Notifikasi', icon: IconBell },
     { key: 'keuangan', label: 'Keuangan', icon: IconWallet },
+    { key: 'notifikasi', label: 'Notifikasi', icon: IconBell },
     { key: 'chat', label: 'Chat', icon: IconMessageCircle }
   ];
   const pageTitles = { dashboard: 'Beranda', warga: role === 'pengurus' ? 'Data Warga' : 'Keluarga Saya', kegiatan: 'Kegiatan Dasawisma', keuangan: 'Keuangan / Kas', pengaturan: 'Pengaturan', chat: 'Chat Grup', notifikasi: 'Notifikasi' };
@@ -595,7 +653,7 @@ function App() {
   const exportWarga = () => {
     const rows = wargaList.map(function (w) {
       return {
-        'Nama Kepala Keluarga': w.namaKK, 'RT': w.rt, 'Alamat': w.alamat,
+        'ID Keluarga': w.id, 'Nama Kepala Keluarga': w.namaKK, 'RT': w.rt, 'Alamat': w.alamat,
         'Jumlah Anggota': w.anggota.length,
         'Laki-laki': w.anggota.filter(function (m) { return m.jk === 'L'; }).length,
         'Perempuan': w.anggota.filter(function (m) { return m.jk === 'P'; }).length,
@@ -606,13 +664,57 @@ function App() {
         'Makanan Pokok': w.makanan, 'UP2K': w.up2k, 'Jenis Usaha': w.jenisUsaha
       };
     });
-    downloadExcel(rows, 'Data_Warga_Dasawisma.xlsx', 'Data Warga');
-    showToast('Data warga berhasil diexport');
+    const anggotaRows = [];
+    wargaList.forEach(function (w) {
+      w.anggota.forEach(function (m) {
+        anggotaRows.push({
+          'ID Keluarga': w.id, 'Nama Kepala Keluarga': w.namaKK,
+          'Nama': m.nama, 'Jenis Kelamin (L/P)': m.jk, 'Tanggal Lahir': m.tglLahir,
+          'Status Dalam Keluarga': m.statusKeluarga, 'Status Kawin': m.statusKawin,
+          'Pendidikan': m.pendidikan, 'Pekerjaan': m.pekerjaan
+        });
+      });
+    });
+    downloadExcelMultiSheet([
+      { rows: rows, name: 'Data Warga', headers: ['ID Keluarga'].concat(WARGA_HEADERS) },
+      { rows: anggotaRows, name: 'Anggota Keluarga', headers: ['ID Keluarga', 'Nama Kepala Keluarga'].concat(ANGGOTA_HEADERS) }
+    ], 'Data_Warga_Dasawisma.xlsx');
+    showToast('Data warga & anggota keluarga berhasil diexport');
+  };
+  const downloadWargaTemplate = () => {
+    downloadExcelMultiSheet([
+      { rows: [], name: 'Data Warga', headers: ['ID Keluarga'].concat(WARGA_HEADERS) },
+      { rows: [], name: 'Anggota Keluarga', headers: ['ID Keluarga', 'Nama Kepala Keluarga'].concat(ANGGOTA_HEADERS) }
+    ], 'Template_Data_Warga.xlsx');
   };
 
   const openAddKegiatan = () => { setKegiatanForm(emptyKegiatanForm()); setKegiatanModal('add'); };
-  const openEditKegiatan = (k) => { setKegiatanForm(Object.assign({ kirimNotifikasi: false }, k)); setKegiatanModal('edit'); };
+  const openEditKegiatan = (k) => { setKegiatanForm(Object.assign({ kirimNotifikasi: false }, k, { jenisInfo: 'Kegiatan' })); setKegiatanModal('edit'); };
   const saveKegiatan = () => {
+    if (kegiatanModal === 'add' && kegiatanForm.jenisInfo === 'Pengumuman') {
+      if (!kegiatanForm.judul.trim()) { showToast('Judul wajib diisi', 'error'); return; }
+      if (!kegiatanForm.kirimNotifikasi) { showToast('Pengumuman hanya tersimpan jika notifikasi diaktifkan', 'error'); return; }
+      if (!chatDb) { showToast('Firebase belum aktif, lihat README', 'error'); return; }
+      chatDb.collection('dasawisma_notifikasi').add({
+        judul: kegiatanForm.judul.trim(), pesan: kegiatanForm.pesan, kategori: 'Pengumuman',
+        tanggal: kegiatanForm.tanggal, berulang: false,
+        createdBy: currentUser.namaLengkap, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      }).then(function () { showToast('Pengumuman berhasil dibuat'); setKegiatanModal(null); })
+        .catch(function () { showToast('Gagal membuat pengumuman', 'error'); });
+      return;
+    }
+    if (kegiatanModal === 'add' && kegiatanForm.jenisInfo === 'Tagihan') {
+      if (!kegiatanForm.judul.trim()) { showToast('Judul wajib diisi', 'error'); return; }
+      if (!kegiatanForm.kirimNotifikasi) { showToast('Tagihan hanya tersimpan jika notifikasi diaktifkan', 'error'); return; }
+      if (!chatDb) { showToast('Firebase belum aktif, lihat README', 'error'); return; }
+      chatDb.collection('dasawisma_notifikasi').add({
+        judul: kegiatanForm.judul.trim(), pesan: kegiatanForm.pesan, kategori: 'Tagihan',
+        tanggal: kegiatanForm.tanggal, berulang: kegiatanForm.berulang,
+        createdBy: currentUser.namaLengkap, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      }).then(function () { showToast('Tagihan berhasil dibuat'); setKegiatanModal(null); })
+        .catch(function () { showToast('Gagal membuat tagihan', 'error'); });
+      return;
+    }
     if (!kegiatanForm.nama.trim()) { showToast('Nama kegiatan wajib diisi', 'error'); return; }
     if (kegiatanModal === 'add') {
       setKegiatanList(function (prev) { return prev.concat([Object.assign({}, kegiatanForm, { id: nextId() })]); });
@@ -706,32 +808,6 @@ function App() {
       .catch(function () { showToast('Gagal menyimpan, cek koneksi internet', 'error'); });
   };
 
-  const openPengumuman = () => { setPengumumanForm(emptyPengumumanForm()); setPengumumanModal(true); };
-  const savePengumuman = () => {
-    if (!pengumumanForm.judul.trim()) { showToast('Judul wajib diisi', 'error'); return; }
-    if (!pengumumanForm.kirimNotifikasi) { showToast('Pengumuman hanya tersimpan jika notifikasi diaktifkan', 'error'); return; }
-    if (!chatDb) { showToast('Firebase belum aktif, lihat README', 'error'); return; }
-    chatDb.collection('dasawisma_notifikasi').add({
-      judul: pengumumanForm.judul.trim(), pesan: pengumumanForm.pesan, kategori: 'Pengumuman',
-      tanggal: pengumumanForm.tanggal, berulang: false,
-      createdBy: currentUser.namaLengkap, createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    }).then(function () { showToast('Pengumuman berhasil dibuat'); setPengumumanModal(false); })
-      .catch(function () { showToast('Gagal membuat pengumuman', 'error'); });
-  };
-
-  const openTagihanNotif = () => { setTagihanNotifForm(emptyTagihanNotifForm()); setTagihanNotifModal(true); };
-  const saveTagihanNotif = () => {
-    if (!tagihanNotifForm.judul.trim()) { showToast('Judul wajib diisi', 'error'); return; }
-    if (!tagihanNotifForm.kirimNotifikasi) { showToast('Tagihan hanya tersimpan jika notifikasi diaktifkan', 'error'); return; }
-    if (!chatDb) { showToast('Firebase belum aktif, lihat README', 'error'); return; }
-    chatDb.collection('dasawisma_notifikasi').add({
-      judul: tagihanNotifForm.judul.trim(), pesan: tagihanNotifForm.pesan, kategori: 'Tagihan',
-      tanggal: tagihanNotifForm.tanggal, berulang: tagihanNotifForm.berulang,
-      createdBy: currentUser.namaLengkap, createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    }).then(function () { showToast('Tagihan berhasil dibuat'); setTagihanNotifModal(false); })
-      .catch(function () { showToast('Gagal membuat tagihan', 'error'); });
-  };
-
   const markAllNotifRead = (list) => {
     setReadNotifIds(function (prev) { return Array.from(new Set(prev.concat(list.map(function (n) { return n.id; })))); });
   };
@@ -800,7 +876,7 @@ function App() {
 
   const resetLocalData = () => {
     try {
-      ['dasawisma_users', 'dasawisma_warga', 'dasawisma_kegiatan', 'dasawisma_keuangan', 'dasawisma_session', 'dasawisma_idcounter'].forEach(function (k) { localStorage.removeItem(k); });
+      ['dasawisma_users', 'dasawisma_warga', 'dasawisma_kegiatan', 'dasawisma_keuangan', 'dasawisma_session', 'dasawisma_idcounter', 'dasawisma_notif_read'].forEach(function (k) { localStorage.removeItem(k); });
     } catch (e) {}
     window.location.reload();
   };
@@ -824,17 +900,41 @@ function App() {
       try {
         const data = new Uint8Array(evt.target.result);
         const wb = XLSX.read(data, { type: 'array' });
-        const sheet = wb.Sheets[wb.SheetNames[0]];
-        const json = XLSX.utils.sheet_to_json(sheet, { defval: '' });
-        if (json.length === 0) { showToast('File kosong atau tidak terbaca', 'error'); return; }
 
         if (type === 'warga') {
-          const mapped = json.map(function (row) {
+          const wargaSheetName = wb.SheetNames.find(function (n) { return n.trim().toLowerCase() === 'data warga'; }) || wb.SheetNames[0];
+          const anggotaSheetName = wb.SheetNames.find(function (n) { return n.trim().toLowerCase() === 'anggota keluarga'; });
+          const wargaJson = XLSX.utils.sheet_to_json(wb.Sheets[wargaSheetName], { defval: '' });
+          if (wargaJson.length === 0) { showToast('File kosong atau tidak terbaca', 'error'); return; }
+          const anggotaJson = anggotaSheetName ? XLSX.utils.sheet_to_json(wb.Sheets[anggotaSheetName], { defval: '' }) : [];
+
+          const anggotaByKey = {};
+          anggotaJson.forEach(function (row) {
+            const key = String(getField(row, 'ID Keluarga') || getField(row, 'Nama Kepala Keluarga') || '').trim().toLowerCase();
+            if (!key) return;
+            const nama = String(getField(row, 'Nama') || '').trim();
+            if (!nama) return;
+            const jkRaw = String(getField(row, 'Jenis Kelamin (L/P)') || 'L').toUpperCase();
+            if (!anggotaByKey[key]) anggotaByKey[key] = [];
+            anggotaByKey[key].push({
+              id: nextId(), nama: nama, jk: jkRaw.charAt(0) === 'P' ? 'P' : 'L',
+              tglLahir: parseExcelDate(getField(row, 'Tanggal Lahir')),
+              statusKeluarga: String(getField(row, 'Status Dalam Keluarga') || ''),
+              statusKawin: String(getField(row, 'Status Kawin') || 'Belum Kawin'),
+              pendidikan: String(getField(row, 'Pendidikan') || ''), pekerjaan: String(getField(row, 'Pekerjaan') || '')
+            });
+          });
+
+          const mapped = wargaJson.map(function (row) {
+            const namaKK = String(getField(row, 'Nama Kepala Keluarga')).trim();
+            const idKey = String(getField(row, 'ID Keluarga') || '').trim().toLowerCase();
+            const nameKey = namaKK.toLowerCase();
+            const anggota = (idKey && anggotaByKey[idKey]) ? anggotaByKey[idKey] : (anggotaByKey[nameKey] || []);
             return {
               id: nextId(),
-              namaKK: String(getField(row, 'Nama Kepala Keluarga')).trim(),
+              namaKK: namaKK,
               rt: String(getField(row, 'RT') || ''), alamat: String(getField(row, 'Alamat') || ''),
-              anggota: [],
+              anggota: anggota,
               balita: Number(getField(row, 'Balita')) || 0, pus: Number(getField(row, 'PUS')) || 0, wus: Number(getField(row, 'WUS')) || 0,
               bumil: Number(getField(row, 'Ibu Hamil')) || 0, busui: Number(getField(row, 'Ibu Menyusui')) || 0, lansia: Number(getField(row, 'Lansia')) || 0,
               tigaButa: Number(getField(row, '3 Buta')) || 0, berkebutuhan: Number(getField(row, 'Berkebutuhan Khusus')) || 0,
@@ -845,9 +945,17 @@ function App() {
             };
           }).filter(function (w) { return w.namaKK; });
           if (mapped.length === 0) { showToast('Tidak ada data terbaca. Cek kolom "Nama Kepala Keluarga" di file.', 'error'); return; }
+          const totalAnggota = mapped.reduce(function (acc, w) { return acc + w.anggota.length; }, 0);
           setWargaList(function (prev) { return prev.concat(mapped); });
-          showToast(mapped.length + ' data warga berhasil diimport');
-        } else if (type === 'keuangan') {
+          showToast(mapped.length + ' data warga (+' + totalAnggota + ' anggota) berhasil diimport');
+          return;
+        }
+
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const json = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+        if (json.length === 0) { showToast('File kosong atau tidak terbaca', 'error'); return; }
+
+        if (type === 'keuangan') {
           if (!chatDb) { showToast('Firebase belum aktif, data tidak bisa disimpan', 'error'); return; }
           const mapped = json.map(function (row) {
             return {
@@ -1255,7 +1363,7 @@ function App() {
                   <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={function (e) { handleFileChange(e, 'warga'); }} />
                 </label>
               </div>
-              <button onClick={function () { downloadTemplate(WARGA_HEADERS, 'Template_Data_Warga.xlsx', 'Template'); }} className="text-xs text-slate-400 underline w-full text-center">Unduh template Excel</button>
+              <button onClick={downloadWargaTemplate} className="text-xs text-slate-400 underline w-full text-center">Unduh template Excel</button>
               <p className="text-xs text-slate-400">{filteredWarga.length} keluarga terdaftar</p>
               <div className="space-y-2.5">
                 {filteredWarga.length === 0 ? (
@@ -1302,14 +1410,9 @@ function App() {
           {page === 'kegiatan' && (
             <>
               {role === 'pengurus' && (
-                <div className="flex gap-2">
-                  <button onClick={openAddKegiatan} className="flex-1 bg-rose-600 text-white font-semibold py-2.5 rounded-xl flex items-center justify-center gap-1.5 text-sm">
-                    <IconPlus className="w-4 h-4" />Kegiatan
-                  </button>
-                  <button onClick={openPengumuman} className="flex-1 bg-slate-800 text-white font-semibold py-2.5 rounded-xl flex items-center justify-center gap-1.5 text-sm">
-                    <IconBell className="w-4 h-4" />Pengumuman
-                  </button>
-                </div>
+                <button onClick={openAddKegiatan} className="w-full bg-rose-600 text-white font-semibold py-2.5 rounded-xl flex items-center justify-center gap-1.5 text-sm">
+                  <IconPlus className="w-4 h-4" />Tambah Kegiatan
+                </button>
               )}
               {role === 'pengurus' && (
                 <>
@@ -1422,9 +1525,7 @@ function App() {
                   <button onClick={openIuran} className="w-full bg-emerald-600 text-white font-semibold py-2.5 rounded-xl flex items-center justify-center gap-1.5 text-sm">
                     <IconPlus className="w-4 h-4" />Catat Iuran Rutin (PKK + Posyandu + Dawis)
                   </button>
-                  <button onClick={openTagihanNotif} className="w-full bg-slate-800 text-white font-semibold py-2.5 rounded-xl flex items-center justify-center gap-1.5 text-sm">
-                    <IconBell className="w-4 h-4" />Buat Tagihan untuk Warga
-                  </button>
+                  <p className="text-xs text-slate-400 text-center -mt-1">Untuk membuat tagihan/pengumuman baru, buka halaman Kegiatan → Tambah Kegiatan</p>
                   <div className="flex gap-2">
                     <button onClick={exportKeuangan} className="flex-1 flex items-center justify-center gap-1.5 bg-white border border-slate-200 rounded-xl py-2 text-xs font-medium text-slate-600">
                       <IconDownload className="w-3.5 h-3.5" />Export Excel
@@ -1582,7 +1683,7 @@ function App() {
                   </div>
                   <div className="bg-white rounded-2xl p-4 border border-red-100">
                     <p className="text-sm font-semibold text-red-600 mb-1">Reset Data Lokal</p>
-                    <p className="text-xs text-slate-500 mb-3">Menghapus data Warga, Kegiatan, dan Akun yang tersimpan di HP ini, lalu kembali ke kondisi awal (login: pengurus / pengurus123). Data Keuangan, Chat, Notifikasi, dan Tagihan TIDAK terhapus karena tersimpan di Firebase — hapus lewat Firebase Console kalau perlu.</p>
+                    <p className="text-xs text-slate-500 mb-3">Menghapus data Warga, Kegiatan, dan status baca notifikasi yang tersimpan di HP ini, lalu kembali ke kondisi awal. Data Akun (login warga), Keuangan, Chat, Notifikasi, dan Tagihan TIDAK terhapus karena tersimpan di Firebase — hapus lewat Firebase Console kalau perlu.</p>
                     <button onClick={function () { setConfirmDelete({ type: 'resetlokal', id: null, label: 'Semua data lokal di HP ini' }); }} className="w-full bg-red-600 text-white font-semibold py-2.5 rounded-xl text-sm">Reset Data Lokal</button>
                   </div>
                 </>
@@ -1636,8 +1737,13 @@ function App() {
             {navItems.map(function (item) {
               const IconComp = item.icon;
               return (
-                <button key={item.key} onClick={function () { setPage(item.key); }} className={'flex-1 flex flex-col items-center gap-1 py-2.5 ' + (page === item.key ? 'text-rose-600' : 'text-slate-400')}>
-                  <IconComp className="w-5 h-5" />
+                <button key={item.key} onClick={function () { setPage(item.key); }} className={'flex-1 flex flex-col items-center gap-1 py-2.5 relative ' + (page === item.key ? 'text-rose-600' : 'text-slate-400')}>
+                  <span className="relative">
+                    <IconComp className="w-5 h-5" />
+                    {item.key === 'notifikasi' && unreadCount > 0 && (
+                      <span className="absolute -top-1 -right-1.5 bg-red-600 text-white text-[9px] font-bold rounded-full min-w-[15px] h-[15px] flex items-center justify-center px-0.5">{unreadCount > 9 ? '9+' : unreadCount}</span>
+                    )}
+                  </span>
                   <span className="text-xs font-medium">{item.label}</span>
                 </button>
               );
@@ -1684,77 +1790,88 @@ function App() {
           <div className="fixed inset-0 z-40 flex items-end justify-center" style={{ backgroundColor: 'rgba(15,23,42,0.5)' }} onClick={function () { setKegiatanModal(null); }}>
             <div className="w-full max-w-md bg-white rounded-t-3xl overflow-y-auto" style={{ maxHeight: '90vh' }} onClick={function (e) { e.stopPropagation(); }}>
               <div className="sticky top-0 bg-white px-5 pt-4 pb-3 border-b border-slate-100 flex justify-between items-center">
-                <p className="font-bold text-slate-800">{kegiatanModal === 'add' ? 'Tambah Kegiatan' : 'Edit Kegiatan'}</p>
+                <p className="font-bold text-slate-800">{kegiatanModal === 'edit' ? 'Edit Kegiatan' : 'Tambah Info'}</p>
                 <button onClick={function () { setKegiatanModal(null); }}><IconX className="w-5 h-5 text-slate-400" /></button>
               </div>
               <div className="p-5 space-y-4">
-                <div>
-                  <label className="text-xs font-medium text-slate-500">Nama Kegiatan</label>
-                  <input value={kegiatanForm.nama} onChange={function (e) { setKegiatanForm(Object.assign({}, kegiatanForm, { nama: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-medium text-slate-500">Tanggal</label>
-                    <input type="date" value={kegiatanForm.tanggal} onChange={function (e) { setKegiatanForm(Object.assign({}, kegiatanForm, { tanggal: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-slate-500">Pokja</label>
-                    <select value={kegiatanForm.pokja} onChange={function (e) { setKegiatanForm(Object.assign({}, kegiatanForm, { pokja: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm">
-                      {POKJA_LIST.map(function (p) { return <option key={p}>{p}</option>; })}
-                    </select>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-medium text-slate-500">Tempat</label>
-                    <input value={kegiatanForm.tempat} onChange={function (e) { setKegiatanForm(Object.assign({}, kegiatanForm, { tempat: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-slate-500">Jumlah Peserta</label>
-                    <input type="number" min="0" value={kegiatanForm.peserta} onChange={function (e) { setKegiatanForm(Object.assign({}, kegiatanForm, { peserta: Number(e.target.value) || 0 })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
-                  </div>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-slate-500">Keterangan</label>
-                  <textarea value={kegiatanForm.keterangan} onChange={function (e) { setKegiatanForm(Object.assign({}, kegiatanForm, { keterangan: e.target.value })); }} rows={2} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
-                </div>
                 {kegiatanModal === 'add' && (
-                  <label className="flex items-center gap-2 text-xs text-slate-600 bg-slate-50 rounded-xl p-3">
-                    <input type="checkbox" checked={kegiatanForm.kirimNotifikasi} onChange={function (e) { setKegiatanForm(Object.assign({}, kegiatanForm, { kirimNotifikasi: e.target.checked })); }} />
-                    Aktifkan Notifikasi (kirim ke semua warga saat disimpan)
-                  </label>
+                  <div>
+                    <label className="text-xs font-medium text-slate-500 mb-1.5 block">Jenis Info</label>
+                    <div className="flex gap-2">
+                      {['Kegiatan', 'Pengumuman', 'Tagihan'].map(function (jt) {
+                        return <button key={jt} onClick={function () { setKegiatanForm(Object.assign({}, kegiatanForm, { jenisInfo: jt })); }} className={'flex-1 py-2 rounded-xl text-xs font-medium ' + (kegiatanForm.jenisInfo === jt ? 'bg-rose-600 text-white' : 'bg-slate-100 text-slate-500')}>{jt}</button>;
+                      })}
+                    </div>
+                  </div>
                 )}
-                <button onClick={saveKegiatan} className="w-full bg-rose-600 text-white font-semibold py-3 rounded-xl">Simpan Kegiatan</button>
-              </div>
-            </div>
-          </div>
-        )}
 
-        {pengumumanModal && (
-          <div className="fixed inset-0 z-40 flex items-end justify-center" style={{ backgroundColor: 'rgba(15,23,42,0.5)' }} onClick={function () { setPengumumanModal(false); }}>
-            <div className="w-full max-w-md bg-white rounded-t-3xl overflow-y-auto" style={{ maxHeight: '90vh' }} onClick={function (e) { e.stopPropagation(); }}>
-              <div className="sticky top-0 bg-white px-5 pt-4 pb-3 border-b border-slate-100 flex justify-between items-center">
-                <p className="font-bold text-slate-800">Buat Pengumuman</p>
-                <button onClick={function () { setPengumumanModal(false); }}><IconX className="w-5 h-5 text-slate-400" /></button>
-              </div>
-              <div className="p-5 space-y-4">
-                <div>
-                  <label className="text-xs font-medium text-slate-500">Judul</label>
-                  <input value={pengumumanForm.judul} onChange={function (e) { setPengumumanForm(Object.assign({}, pengumumanForm, { judul: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-slate-500">Pesan</label>
-                  <textarea value={pengumumanForm.pesan} onChange={function (e) { setPengumumanForm(Object.assign({}, pengumumanForm, { pesan: e.target.value })); }} rows={3} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-slate-500">Tanggal</label>
-                  <input type="date" value={pengumumanForm.tanggal} onChange={function (e) { setPengumumanForm(Object.assign({}, pengumumanForm, { tanggal: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
-                </div>
-                <label className="flex items-center gap-2 text-xs text-slate-600 bg-slate-50 rounded-xl p-3">
-                  <input type="checkbox" checked={pengumumanForm.kirimNotifikasi} onChange={function (e) { setPengumumanForm(Object.assign({}, pengumumanForm, { kirimNotifikasi: e.target.checked })); }} />
-                  Aktifkan Notifikasi (kirim ke semua warga)
-                </label>
-                <button onClick={savePengumuman} className="w-full bg-rose-600 text-white font-semibold py-3 rounded-xl">Simpan Pengumuman</button>
+                {kegiatanForm.jenisInfo === 'Kegiatan' ? (
+                  <>
+                    <div>
+                      <label className="text-xs font-medium text-slate-500">Nama Kegiatan</label>
+                      <input value={kegiatanForm.nama} onChange={function (e) { setKegiatanForm(Object.assign({}, kegiatanForm, { nama: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-medium text-slate-500">Tanggal</label>
+                        <input type="date" value={kegiatanForm.tanggal} onChange={function (e) { setKegiatanForm(Object.assign({}, kegiatanForm, { tanggal: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-slate-500">Pokja</label>
+                        <select value={kegiatanForm.pokja} onChange={function (e) { setKegiatanForm(Object.assign({}, kegiatanForm, { pokja: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm">
+                          {POKJA_LIST.map(function (p) { return <option key={p}>{p}</option>; })}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-medium text-slate-500">Tempat</label>
+                        <input value={kegiatanForm.tempat} onChange={function (e) { setKegiatanForm(Object.assign({}, kegiatanForm, { tempat: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-slate-500">Jumlah Peserta</label>
+                        <input type="number" min="0" value={kegiatanForm.peserta} onChange={function (e) { setKegiatanForm(Object.assign({}, kegiatanForm, { peserta: Number(e.target.value) || 0 })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-slate-500">Keterangan</label>
+                      <textarea value={kegiatanForm.keterangan} onChange={function (e) { setKegiatanForm(Object.assign({}, kegiatanForm, { keterangan: e.target.value })); }} rows={2} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+                    </div>
+                    {kegiatanModal === 'add' && (
+                      <label className="flex items-center gap-2 text-xs text-slate-600 bg-slate-50 rounded-xl p-3">
+                        <input type="checkbox" checked={kegiatanForm.kirimNotifikasi} onChange={function (e) { setKegiatanForm(Object.assign({}, kegiatanForm, { kirimNotifikasi: e.target.checked })); }} />
+                        Aktifkan Notifikasi (kirim ke semua warga saat disimpan)
+                      </label>
+                    )}
+                    <button onClick={saveKegiatan} className="w-full bg-rose-600 text-white font-semibold py-3 rounded-xl">Simpan Kegiatan</button>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <label className="text-xs font-medium text-slate-500">Judul</label>
+                      <input value={kegiatanForm.judul} onChange={function (e) { setKegiatanForm(Object.assign({}, kegiatanForm, { judul: e.target.value })); }} placeholder={kegiatanForm.jenisInfo === 'Tagihan' ? 'cth. Tagihan Iuran Bulan Ini' : 'cth. Kerja Bakti Minggu Ini'} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-slate-500">Pesan</label>
+                      <textarea value={kegiatanForm.pesan} onChange={function (e) { setKegiatanForm(Object.assign({}, kegiatanForm, { pesan: e.target.value })); }} rows={3} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-slate-500">{kegiatanForm.jenisInfo === 'Tagihan' ? 'Batas Tanggal Bayar' : 'Tanggal'}</label>
+                      <input type="date" value={kegiatanForm.tanggal} onChange={function (e) { setKegiatanForm(Object.assign({}, kegiatanForm, { tanggal: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+                    </div>
+                    {kegiatanForm.jenisInfo === 'Tagihan' && (
+                      <label className="flex items-center gap-2 text-xs text-slate-600 bg-slate-50 rounded-xl p-3">
+                        <input type="checkbox" checked={kegiatanForm.berulang} onChange={function (e) { setKegiatanForm(Object.assign({}, kegiatanForm, { berulang: e.target.checked })); }} />
+                        Tagihan berulang (setiap bulan, bukan sekali saja)
+                      </label>
+                    )}
+                    <label className="flex items-center gap-2 text-xs text-slate-600 bg-slate-50 rounded-xl p-3">
+                      <input type="checkbox" checked={kegiatanForm.kirimNotifikasi} onChange={function (e) { setKegiatanForm(Object.assign({}, kegiatanForm, { kirimNotifikasi: e.target.checked })); }} />
+                      Aktifkan Notifikasi (kirim ke semua warga)
+                    </label>
+                    <button onClick={saveKegiatan} className="w-full bg-rose-600 text-white font-semibold py-3 rounded-xl">{kegiatanForm.jenisInfo === 'Tagihan' ? 'Simpan Tagihan' : 'Simpan Pengumuman'}</button>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -1909,40 +2026,6 @@ function App() {
               <div className="flex gap-2 mt-4">
                 <button onClick={function () { setAkunWargaModal(null); }} className="flex-1 bg-slate-100 text-slate-600 py-2.5 rounded-xl text-sm font-medium">Batal</button>
                 <button onClick={saveAkunWarga} className="flex-1 bg-rose-600 text-white py-2.5 rounded-xl text-sm font-medium">Simpan</button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {tagihanNotifModal && (
-          <div className="fixed inset-0 z-40 flex items-end justify-center" style={{ backgroundColor: 'rgba(15,23,42,0.5)' }} onClick={function () { setTagihanNotifModal(false); }}>
-            <div className="w-full max-w-md bg-white rounded-t-3xl overflow-y-auto" style={{ maxHeight: '90vh' }} onClick={function (e) { e.stopPropagation(); }}>
-              <div className="sticky top-0 bg-white px-5 pt-4 pb-3 border-b border-slate-100 flex justify-between items-center">
-                <p className="font-bold text-slate-800">Buat Tagihan</p>
-                <button onClick={function () { setTagihanNotifModal(false); }}><IconX className="w-5 h-5 text-slate-400" /></button>
-              </div>
-              <div className="p-5 space-y-4">
-                <div>
-                  <label className="text-xs font-medium text-slate-500">Judul</label>
-                  <input value={tagihanNotifForm.judul} onChange={function (e) { setTagihanNotifForm(Object.assign({}, tagihanNotifForm, { judul: e.target.value })); }} placeholder="cth. Tagihan Iuran Bulan Ini" className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-slate-500">Pesan</label>
-                  <textarea value={tagihanNotifForm.pesan} onChange={function (e) { setTagihanNotifForm(Object.assign({}, tagihanNotifForm, { pesan: e.target.value })); }} rows={3} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-slate-500">Batas Tanggal Bayar</label>
-                  <input type="date" value={tagihanNotifForm.tanggal} onChange={function (e) { setTagihanNotifForm(Object.assign({}, tagihanNotifForm, { tanggal: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
-                </div>
-                <label className="flex items-center gap-2 text-xs text-slate-600 bg-slate-50 rounded-xl p-3">
-                  <input type="checkbox" checked={tagihanNotifForm.berulang} onChange={function (e) { setTagihanNotifForm(Object.assign({}, tagihanNotifForm, { berulang: e.target.checked })); }} />
-                  Tagihan berulang (setiap bulan, bukan sekali saja)
-                </label>
-                <label className="flex items-center gap-2 text-xs text-slate-600 bg-slate-50 rounded-xl p-3">
-                  <input type="checkbox" checked={tagihanNotifForm.kirimNotifikasi} onChange={function (e) { setTagihanNotifForm(Object.assign({}, tagihanNotifForm, { kirimNotifikasi: e.target.checked })); }} />
-                  Aktifkan Notifikasi (kirim ke semua warga)
-                </label>
-                <button onClick={saveTagihanNotif} className="w-full bg-rose-600 text-white font-semibold py-3 rounded-xl">Simpan Tagihan</button>
               </div>
             </div>
           </div>

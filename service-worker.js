@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dasawisma-v3';
+const CACHE_NAME = 'dasawisma-v4';
 const urlsToCache = ['/', '/index.html', '/manifest.json'];
 
 self.addEventListener('install', function (event) {
