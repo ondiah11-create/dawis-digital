@@ -78,6 +78,7 @@ try {
     firebaseReady = true;
   }
 } catch (e) {
+  console.error('Firebase init error:', e);
   firebaseReady = false;
 }
 
@@ -432,7 +433,7 @@ function App() {
     chatDb.collection('dasawisma_chat_messages').add({
       nama: currentUser.namaLengkap, role: currentUser.role, text: text,
       timestamp: firebase.firestore.FieldValue.serverTimestamp()
-    }).catch(function () { showToast('Gagal mengirim pesan, cek koneksi internet', 'error'); });
+    }).catch(function (e) { console.error(e); showToast('Gagal mengirim pesan, cek koneksi internet (' + (e && e.message ? e.message : 'cek Firestore') + ')', 'error'); });
   };
 
   const handleLogin = () => {
@@ -462,7 +463,7 @@ function App() {
       chatDb.collection('dasawisma_users').doc(String(currentUser.id)).update({
         namaLengkap: updated.namaLengkap, username: updated.username, password: updated.password
       }).then(function () { showToast('Akun berhasil diperbarui'); })
-        .catch(function () { showToast('Gagal menyimpan ke server, cek koneksi internet', 'error'); });
+        .catch(function (e) { console.error(e); showToast('Gagal menyimpan ke server, cek koneksi internet (' + (e && e.message ? e.message : 'cek Firestore') + ')', 'error'); });
     } else {
       setUsers(function (prev) { return prev.map(function (u) { return u.id === currentUser.id ? updated : u; }); });
       showToast('Akun berhasil diperbarui');
@@ -476,7 +477,7 @@ function App() {
     if (chatDb) {
       chatDb.collection('dasawisma_warga').doc(String(currentUser.wargaId)).set(updated)
         .then(function () { showToast('Data keluarga berhasil diperbarui'); })
-        .catch(function () { showToast('Gagal menyimpan ke server, cek koneksi internet', 'error'); });
+        .catch(function (e) { console.error(e); showToast('Gagal menyimpan ke server, cek koneksi internet (' + (e && e.message ? e.message : 'cek Firestore') + ')', 'error'); });
     } else {
       setWargaList(function (prev) { return prev.map(function (w) { return w.id === currentUser.wargaId ? updated : w; }); });
       showToast('Data keluarga berhasil diperbarui');
@@ -508,7 +509,7 @@ function App() {
       }).then(function () {
         showToast('Akun ' + (akunWargaForm.role === 'pengurus' ? 'Pengurus' : 'Anggota') + ' berhasil dibuat untuk ' + warga.namaKK);
         setAkunWargaModal(null);
-      }).catch(function () { showToast('Gagal membuat akun, cek koneksi internet', 'error'); });
+      }).catch(function (e) { console.error(e); showToast('Gagal membuat akun, cek koneksi internet (' + (e && e.message ? e.message : 'cek Firestore') + ')', 'error'); });
     } else {
       if (users.some(function (u) { return u.id !== akunWargaModal.userId && u.username.toLowerCase() === akunWargaForm.username.toLowerCase(); })) {
         showToast('Username sudah digunakan', 'error'); return;
@@ -518,7 +519,7 @@ function App() {
       }).then(function () {
         showToast('Username & password berhasil direset');
         setAkunWargaModal(null);
-      }).catch(function () { showToast('Gagal reset akun, cek koneksi internet', 'error'); });
+      }).catch(function (e) { console.error(e); showToast('Gagal reset akun, cek koneksi internet (' + (e && e.message ? e.message : 'cek Firestore') + ')', 'error'); });
     }
   };
 
@@ -644,7 +645,7 @@ function App() {
     if (chatDb) {
       chatDb.collection('dasawisma_warga').doc(String(record.id)).set(record)
         .then(function () { showToast(successMsg); })
-        .catch(function () { showToast('Gagal menyimpan ke server, cek koneksi internet', 'error'); });
+        .catch(function (e) { console.error(e); showToast('Gagal menyimpan ke server, cek koneksi internet (' + (e && e.message ? e.message : 'cek Firestore') + ')', 'error'); });
     } else {
       if (wargaModal === 'add') setWargaList(function (prev) { return prev.concat([record]); });
       else setWargaList(function (prev) { return prev.map(function (w) { return w.id === record.id ? record : w; }); });
@@ -754,7 +755,7 @@ function App() {
         tanggal: kegiatanForm.tanggal, berulang: false,
         createdBy: currentUser.namaLengkap, createdAt: firebase.firestore.FieldValue.serverTimestamp()
       }).then(function () { showToast('Pengumuman berhasil dibuat'); setKegiatanModal(null); })
-        .catch(function () { showToast('Gagal membuat pengumuman', 'error'); });
+        .catch(function (e) { console.error(e); showToast('Gagal membuat pengumuman (' + (e && e.message ? e.message : 'cek Firestore') + ')', 'error'); });
       return;
     }
     if (kegiatanModal === 'add' && kegiatanForm.jenisInfo === 'Tagihan') {
@@ -768,7 +769,7 @@ function App() {
         nominal: Number(kegiatanForm.nominal), tanggal: kegiatanForm.tanggal, berulang: kegiatanForm.berulang,
         createdBy: currentUser.namaLengkap, createdAt: firebase.firestore.FieldValue.serverTimestamp()
       }).then(function () { showToast('Tagihan berhasil dibuat'); setKegiatanModal(null); })
-        .catch(function () { showToast('Gagal membuat tagihan', 'error'); });
+        .catch(function (e) { console.error(e); showToast('Gagal membuat tagihan (' + (e && e.message ? e.message : 'cek Firestore') + ')', 'error'); });
       return;
     }
     if (!kegiatanForm.nama.trim()) { showToast('Nama kegiatan wajib diisi', 'error'); return; }
@@ -811,7 +812,7 @@ function App() {
       ? chatDb.collection('dasawisma_keuangan').add(data)
       : chatDb.collection('dasawisma_keuangan').doc(keuanganForm.id).update(data);
     p.then(function () { showToast(keuanganModal === 'add' ? 'Transaksi berhasil ditambahkan' : 'Transaksi berhasil diperbarui'); })
-     .catch(function () { showToast('Gagal menyimpan, cek koneksi internet', 'error'); });
+     .catch(function (e) { console.error(e); showToast('Gagal menyimpan, cek koneksi internet (' + (e && e.message ? e.message : 'cek Firestore') + ')', 'error'); });
     setKeuanganModal(null);
   };
   const exportKeuangan = () => {
@@ -861,7 +862,7 @@ function App() {
       }
     });
     batch.commit().then(function () { showToast('Iuran berhasil dicatat (' + count + ' entri)'); setIuranModal(false); })
-      .catch(function () { showToast('Gagal menyimpan, cek koneksi internet', 'error'); });
+      .catch(function (e) { console.error(e); showToast('Gagal menyimpan, cek koneksi internet (' + (e && e.message ? e.message : 'cek Firestore') + ')', 'error'); });
   };
 
   const markAllNotifRead = (list) => {
@@ -895,7 +896,7 @@ function App() {
         createdBy: currentUser.namaLengkap, createdAt: firebase.firestore.FieldValue.serverTimestamp()
       });
     }).then(function () { showToast('Bukti pembayaran terkirim, menunggu persetujuan pengurus'); setPengajuanModal(false); })
-      .catch(function () { showToast('Gagal mengirim, cek koneksi internet', 'error'); });
+      .catch(function (e) { console.error(e); showToast('Gagal mengirim, cek koneksi internet (' + (e && e.message ? e.message : 'cek Firestore') + ')', 'error'); });
   };
 
   const openKlasifikasi = (t) => { setKlasifikasiForm(emptyKlasifikasiForm()); setKlasifikasiModal(t); };
@@ -922,7 +923,7 @@ function App() {
     const tagihanRef = chatDb.collection('dasawisma_tagihan').doc(t.id);
     batch.update(tagihanRef, { status: 'approved', klasifikasi: klasifikasiForm });
     batch.commit().then(function () { showToast('Pembayaran disetujui & tercatat di keuangan'); setKlasifikasiModal(null); })
-      .catch(function () { showToast('Gagal menyimpan, cek koneksi internet', 'error'); });
+      .catch(function (e) { console.error(e); showToast('Gagal menyimpan, cek koneksi internet (' + (e && e.message ? e.message : 'cek Firestore') + ')', 'error'); });
   };
   const rejectTagihan = (t) => {
     if (chatDb) chatDb.collection('dasawisma_tagihan').doc(t.id).update({ status: 'rejected' });
@@ -1036,7 +1037,7 @@ function App() {
             if (count > 0) chunks.push(batch.commit());
             Promise.all(chunks)
               .then(function () { showToast(mapped.length + ' data warga (+' + totalAnggota + ' anggota) berhasil diimport'); })
-              .catch(function () { showToast('Gagal upload ke server, cek koneksi internet', 'error'); });
+              .catch(function (e) { console.error(e); showToast('Gagal upload ke server, cek koneksi internet (' + (e && e.message ? e.message : 'cek Firestore') + ')', 'error'); });
           } else {
             setWargaList(function (prev) { return prev.concat(mapped); });
             showToast(mapped.length + ' data warga (+' + totalAnggota + ' anggota) berhasil diimport');
@@ -1062,7 +1063,7 @@ function App() {
           const batch = chatDb.batch();
           mapped.forEach(function (m) { batch.set(chatDb.collection('dasawisma_keuangan').doc(), m); });
           batch.commit().then(function () { showToast(mapped.length + ' transaksi berhasil diimport'); })
-            .catch(function () { showToast('Gagal import, cek koneksi internet', 'error'); });
+            .catch(function (e) { console.error(e); showToast('Gagal import, cek koneksi internet (' + (e && e.message ? e.message : 'cek Firestore') + ')', 'error'); });
         } else if (type === 'kegiatan') {
           const mapped = json.map(function (row) {
             return {
