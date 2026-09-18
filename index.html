@@ -60,13 +60,12 @@ const IconMessageCircle = (p) => <Icon {...p}><path d="M21 11.5a8.38 8.38 0 0 1-
 const IconSend = (p) => <Icon {...p}><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></Icon>;
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAwhF2B1fU_06xDir1lJ6Pa4-3KkIecKu4",
-  authDomain: "dasawisma-digital.firebaseapp.com",
-  projectId: "dasawisma-digital",
-  storageBucket: "dasawisma-digital.firebasestorage.app",
-  messagingSenderId: "438802301132",
-  appId: "1:438802301132:web:aaa3518cceae7198e9c269",
-  measurementId: "G-7WPBDH6DW9"
+  apiKey: "GANTI_API_KEY",
+  authDomain: "GANTI.firebaseapp.com",
+  projectId: "GANTI_PROJECT_ID",
+  storageBucket: "GANTI.appspot.com",
+  messagingSenderId: "GANTI_SENDER_ID",
+  appId: "GANTI_APP_ID"
 };
 
 let chatDb = null;
@@ -147,7 +146,7 @@ const emptyWargaForm = () => ({
 const emptyKegiatanForm = () => ({
   id: null, jenisInfo: 'Kegiatan',
   nama: '', tanggal: '', pokja: 'Umum', peserta: 0, tempat: '', keterangan: '',
-  judul: '', pesan: '', berulang: false,
+  judul: '', pesan: '', berulang: false, nominal: 0,
   kirimNotifikasi: true
 });
 const emptyKeuanganForm = () => ({ id: null, tanggal: '', jenis: 'Masuk', kategori: '', nominal: 0, keterangan: '', attachment: null });
@@ -240,6 +239,7 @@ function App() {
   const mountTimeRef = useRef(Date.now());
   const [toast, setToast] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [fabMenuOpen, setFabMenuOpen] = useState(false);
 
   const [searchWarga, setSearchWarga] = useState('');
   const [filterPokja, setFilterPokja] = useState('Semua');
@@ -308,6 +308,29 @@ function App() {
   }, [users]);
 
   useEffect(function () { safeSetItem('dasawisma_warga', wargaList); }, [wargaList]);
+
+  // Data Warga/Keluarga disinkronkan lewat Firebase supaya data keluarga yang diinput pengurus
+  // bisa terlihat di HP warga sendiri (dibutuhkan untuk fitur Keluarga Saya & Ajukan Pembayaran).
+  // Field "id" disimpan eksplisit di dalam dokumen (bukan dari doc.id) supaya tipe datanya tetap
+  // angka dan konsisten dengan wargaId yang sudah tersimpan di akun/tagihan.
+  useEffect(function () {
+    if (!chatDb) return;
+    const unsub = chatDb.collection('dasawisma_warga').onSnapshot(function (snapshot) {
+      if (snapshot.empty) {
+        const local = loadPersisted('dasawisma_warga', seedWarga);
+        if (local.length > 0) {
+          const batch = chatDb.batch();
+          local.forEach(function (w) { batch.set(chatDb.collection('dasawisma_warga').doc(String(w.id)), w); });
+          batch.commit().catch(function () {});
+        }
+        return;
+      }
+      const items = snapshot.docs.map(function (doc) { return doc.data(); });
+      setWargaList(items);
+    }, function () {});
+    return function () { unsub(); };
+  }, []);
+
   useEffect(function () { safeSetItem('dasawisma_kegiatan', kegiatanList); }, [kegiatanList]);
   useEffect(function () {
     if (currentUser) safeSetItem('dasawisma_session', currentUser);
@@ -448,8 +471,15 @@ function App() {
   };
   const saveMyWarga = () => {
     if (!wargaForm.namaKK.trim()) { showToast('Nama kepala keluarga wajib diisi', 'error'); return; }
-    setWargaList(function (prev) { return prev.map(function (w) { return w.id === currentUser.wargaId ? Object.assign({}, wargaForm, { id: currentUser.wargaId }) : w; }); });
-    showToast('Data keluarga berhasil diperbarui');
+    const updated = Object.assign({}, wargaForm, { id: currentUser.wargaId });
+    if (chatDb) {
+      chatDb.collection('dasawisma_warga').doc(String(currentUser.wargaId)).set(updated)
+        .then(function () { showToast('Data keluarga berhasil diperbarui'); })
+        .catch(function () { showToast('Gagal menyimpan ke server, cek koneksi internet', 'error'); });
+    } else {
+      setWargaList(function (prev) { return prev.map(function (w) { return w.id === currentUser.wargaId ? updated : w; }); });
+      showToast('Data keluarga berhasil diperbarui');
+    }
   };
 
   const openCreateAkunWarga = (warga) => {
@@ -571,10 +601,10 @@ function App() {
     const d = new Date(n.tanggal);
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   });
-  const goToTagihanPembayaran = () => {
+  const goToTagihanPembayaran = (n) => {
     setPage('keuangan');
     if (role === 'anggota' && myWarga && myTagihanStatus !== 'approved' && myTagihanStatus !== 'pending') {
-      openPengajuan();
+      openPengajuan(n && n.nominal);
     }
   };
 
@@ -608,12 +638,16 @@ function App() {
   const openEditWarga = (w) => { setWargaForm(JSON.parse(JSON.stringify(w))); setWargaModal('edit'); };
   const saveWarga = () => {
     if (!wargaForm.namaKK.trim()) { showToast('Nama kepala keluarga wajib diisi', 'error'); return; }
-    if (wargaModal === 'add') {
-      setWargaList(function (prev) { return prev.concat([Object.assign({}, wargaForm, { id: nextId() })]); });
-      showToast('Data keluarga berhasil ditambahkan');
+    const record = wargaModal === 'add' ? Object.assign({}, wargaForm, { id: nextId() }) : wargaForm;
+    const successMsg = wargaModal === 'add' ? 'Data keluarga berhasil ditambahkan' : 'Data keluarga berhasil diperbarui';
+    if (chatDb) {
+      chatDb.collection('dasawisma_warga').doc(String(record.id)).set(record)
+        .then(function () { showToast(successMsg); })
+        .catch(function () { showToast('Gagal menyimpan ke server, cek koneksi internet', 'error'); });
     } else {
-      setWargaList(function (prev) { return prev.map(function (w) { return w.id === wargaForm.id ? wargaForm : w; }); });
-      showToast('Data keluarga berhasil diperbarui');
+      if (wargaModal === 'add') setWargaList(function (prev) { return prev.concat([record]); });
+      else setWargaList(function (prev) { return prev.map(function (w) { return w.id === record.id ? record : w; }); });
+      showToast(successMsg);
     }
     setWargaModal(null);
   };
@@ -707,6 +741,7 @@ function App() {
 
   const openAddKegiatan = () => { setKegiatanForm(emptyKegiatanForm()); setKegiatanModal('add'); };
   const openQuickTagihan = () => { setKegiatanForm(Object.assign(emptyKegiatanForm(), { jenisInfo: 'Tagihan' })); setKegiatanModal('add'); };
+  const openQuickPengumuman = () => { setKegiatanForm(Object.assign(emptyKegiatanForm(), { jenisInfo: 'Pengumuman' })); setKegiatanModal('add'); };
   const openEditKegiatan = (k) => { setKegiatanForm(Object.assign({ kirimNotifikasi: false }, k, { jenisInfo: 'Kegiatan' })); setKegiatanModal('edit'); };
   const saveKegiatan = () => {
     if (kegiatanModal === 'add' && kegiatanForm.jenisInfo === 'Pengumuman') {
@@ -723,11 +758,13 @@ function App() {
     }
     if (kegiatanModal === 'add' && kegiatanForm.jenisInfo === 'Tagihan') {
       if (!kegiatanForm.judul.trim()) { showToast('Judul wajib diisi', 'error'); return; }
+      if (!kegiatanForm.nominal || Number(kegiatanForm.nominal) <= 0) { showToast('Nominal tagihan wajib diisi', 'error'); return; }
+      if (!kegiatanForm.tanggal) { showToast('Jatuh tempo wajib diisi', 'error'); return; }
       if (!kegiatanForm.kirimNotifikasi) { showToast('Tagihan hanya tersimpan jika notifikasi diaktifkan', 'error'); return; }
       if (!chatDb) { showToast('Firebase belum aktif, lihat README', 'error'); return; }
       chatDb.collection('dasawisma_notifikasi').add({
         judul: kegiatanForm.judul.trim(), pesan: kegiatanForm.pesan, kategori: 'Tagihan',
-        tanggal: kegiatanForm.tanggal, berulang: kegiatanForm.berulang,
+        nominal: Number(kegiatanForm.nominal), tanggal: kegiatanForm.tanggal, berulang: kegiatanForm.berulang,
         createdBy: currentUser.namaLengkap, createdAt: firebase.firestore.FieldValue.serverTimestamp()
       }).then(function () { showToast('Tagihan berhasil dibuat'); setKegiatanModal(null); })
         .catch(function () { showToast('Gagal membuat tagihan', 'error'); });
@@ -830,7 +867,7 @@ function App() {
     setReadNotifIds(function (prev) { return Array.from(new Set(prev.concat(list.map(function (n) { return n.id; })))); });
   };
 
-  const openPengajuan = () => { setPengajuanForm(emptyPengajuanForm()); setPengajuanModal(true); };
+  const openPengajuan = (prefillNominal) => { setPengajuanForm(Object.assign(emptyPengajuanForm(), prefillNominal ? { nominal: prefillNominal } : {})); setPengajuanModal(true); };
   const handlePengajuanBukti = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -913,7 +950,7 @@ function App() {
     } catch (e) {}
     if (!chatDb) { window.location.reload(); return; }
     showToast('Menghapus semua data, mohon tunggu...');
-    Promise.all(['dasawisma_users', 'dasawisma_keuangan', 'dasawisma_notifikasi', 'dasawisma_tagihan', 'dasawisma_chat'].map(deleteAllDocs))
+    Promise.all(['dasawisma_users', 'dasawisma_warga', 'dasawisma_keuangan', 'dasawisma_notifikasi', 'dasawisma_tagihan', 'dasawisma_chat_messages'].map(deleteAllDocs))
       .then(function () {
         return chatDb.collection('dasawisma_users').doc('u-pengurus').set({ namaLengkap: 'Pengurus Dasawisma', username: 'pengurus', password: 'pengurus123', role: 'pengurus', wargaId: null });
       })
@@ -924,7 +961,7 @@ function App() {
   const confirmDeleteAction = () => {
     const type = confirmDelete.type, id = confirmDelete.id, label = confirmDelete.label;
     if (type === 'resetlokal') { resetLocalData(); return; }
-    if (type === 'warga') setWargaList(function (prev) { return prev.filter(function (w) { return w.id !== id; }); });
+    if (type === 'warga') { if (chatDb) chatDb.collection('dasawisma_warga').doc(String(id)).delete(); else setWargaList(function (prev) { return prev.filter(function (w) { return w.id !== id; }); }); }
     if (type === 'kegiatan') setKegiatanList(function (prev) { return prev.filter(function (k) { return k.id !== id; }); });
     if (type === 'keuangan') { if (chatDb) chatDb.collection('dasawisma_keuangan').doc(id).delete(); }
     if (type === 'notifikasi') { if (chatDb) chatDb.collection('dasawisma_notifikasi').doc(id).delete(); }
@@ -986,8 +1023,23 @@ function App() {
           }).filter(function (w) { return w.namaKK; });
           if (mapped.length === 0) { showToast('Tidak ada data terbaca. Cek kolom "Nama Kepala Keluarga" di file.', 'error'); return; }
           const totalAnggota = mapped.reduce(function (acc, w) { return acc + w.anggota.length; }, 0);
-          setWargaList(function (prev) { return prev.concat(mapped); });
-          showToast(mapped.length + ' data warga (+' + totalAnggota + ' anggota) berhasil diimport');
+          if (chatDb) {
+            const chunks = [];
+            let batch = chatDb.batch();
+            let count = 0;
+            mapped.forEach(function (w) {
+              batch.set(chatDb.collection('dasawisma_warga').doc(String(w.id)), w);
+              count++;
+              if (count === 400) { chunks.push(batch.commit()); batch = chatDb.batch(); count = 0; }
+            });
+            if (count > 0) chunks.push(batch.commit());
+            Promise.all(chunks)
+              .then(function () { showToast(mapped.length + ' data warga (+' + totalAnggota + ' anggota) berhasil diimport'); })
+              .catch(function () { showToast('Gagal upload ke server, cek koneksi internet', 'error'); });
+          } else {
+            setWargaList(function (prev) { return prev.concat(mapped); });
+            showToast(mapped.length + ' data warga (+' + totalAnggota + ' anggota) berhasil diimport');
+          }
           return;
         }
 
@@ -1307,13 +1359,13 @@ function App() {
                   <p className="text-sm font-semibold text-slate-700 mb-3">Tagihan Bulan Ini</p>
                   {tagihanBulanIniNotif.map(function (n) {
                     return (
-                      <button key={n.id} onClick={goToTagihanPembayaran} className="w-full flex items-center gap-3 py-2 border-b border-slate-50 last:border-0 text-left">
+                      <button key={n.id} onClick={function () { goToTagihanPembayaran(n); }} className="w-full flex items-center gap-3 py-2 border-b border-slate-50 last:border-0 text-left">
                         <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center shrink-0">
                           <IconWallet className="w-4 h-4 text-rose-600" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-slate-800 truncate">{n.judul}</p>
-                          <p className="text-xs text-slate-400 truncate">{n.pesan || 'Ketuk untuk bayar'}</p>
+                          <p className="text-xs text-slate-400 truncate">{n.nominal ? formatRupiah(n.nominal) + (n.tanggal ? ' · jatuh tempo ' + formatTanggal(n.tanggal) : '') : (n.pesan || 'Ketuk untuk bayar')}</p>
                         </div>
                         <IconChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
                       </button>
@@ -1396,14 +1448,20 @@ function App() {
                   <div className="text-center py-10 text-slate-400 text-sm">{notifFilter === 'semua' ? 'Belum ada notifikasi' : 'Tidak ada notifikasi di kategori ini'}</div>
                 ) : filteredNotifikasi.map(function (n) {
                   const isRead = readNotifIds.includes(n.id);
-                  const clickable = role === 'pengurus' && n.kategori === 'Tagihan' && n.tagihanRef;
+                  const clickablePengurus = role === 'pengurus' && n.kategori === 'Tagihan' && n.tagihanRef;
+                  const clickableAnggota = role === 'anggota' && n.kategori === 'Tagihan' && !n.tagihanRef;
+                  const clickable = clickablePengurus || clickableAnggota;
                   return (
                     <div key={n.id} onClick={function () {
                       markNotifRead(n.id);
                       if (!clickable) return;
-                      const t = tagihanList.find(function (x) { return x.id === n.tagihanRef; });
-                      if (t && t.status === 'pending') openKlasifikasi(t);
-                      else showToast('Pengajuan ini sudah diproses', 'error');
+                      if (clickablePengurus) {
+                        const t = tagihanList.find(function (x) { return x.id === n.tagihanRef; });
+                        if (t && t.status === 'pending') openKlasifikasi(t);
+                        else showToast('Pengajuan ini sudah diproses', 'error');
+                      } else if (clickableAnggota) {
+                        goToTagihanPembayaran(n);
+                      }
                     }} className={'bg-white rounded-2xl p-4 border cursor-pointer active:bg-slate-50 ' + (isRead ? 'border-slate-100' : 'border-rose-200')}>
                       <div className="flex justify-between items-start gap-2">
                         <div className="flex-1 min-w-0">
@@ -1413,8 +1471,10 @@ function App() {
                             {n.berulang && <span className="text-xs text-slate-400">berulang</span>}
                           </div>
                           <p className={'text-sm mt-1 ' + (isRead ? 'font-medium text-slate-700' : 'font-semibold text-slate-900')}>{n.judul}</p>
+                          {n.nominal ? <p className="text-sm font-bold text-rose-600 mt-0.5">{formatRupiah(n.nominal)}</p> : null}
                           {n.pesan && <p className="text-xs text-slate-500 mt-0.5">{n.pesan}</p>}
-                          <p className="text-xs text-slate-400 mt-1">{n.tanggal ? formatTanggal(n.tanggal) : ''} · oleh {n.createdBy}</p>
+                          <p className="text-xs text-slate-400 mt-1">{n.tanggal ? ((n.kategori === 'Tagihan' && n.nominal ? 'Jatuh tempo ' : '') + formatTanggal(n.tanggal)) : ''} · oleh {n.createdBy}</p>
+                          {clickableAnggota && <p className="text-xs text-rose-600 font-medium mt-1">Ketuk untuk bayar →</p>}
                         </div>
                         {role === 'pengurus' && (
                           <button onClick={function (e) { e.stopPropagation(); setConfirmDelete({ type: 'notifikasi', id: n.id, label: n.judul }); }}><IconTrash className="w-3.5 h-3.5 text-red-400" /></button>
@@ -1494,11 +1554,6 @@ function App() {
           {page === 'kegiatan' && (
             <>
               {role === 'pengurus' && (
-                <button onClick={openAddKegiatan} className="w-full bg-rose-600 text-white font-semibold py-2.5 rounded-xl flex items-center justify-center gap-1.5 text-sm">
-                  <IconPlus className="w-4 h-4" />Tambah Kegiatan
-                </button>
-              )}
-              {role === 'pengurus' && (
                 <>
                   <div className="flex gap-2">
                     <button onClick={exportKegiatan} className="flex-1 flex items-center justify-center gap-1.5 bg-white border border-slate-200 rounded-xl py-2 text-xs font-medium text-slate-600">
@@ -1555,15 +1610,12 @@ function App() {
               </div>
 
               {role === 'pengurus' && (
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   <button onClick={openAddKeuangan} className="bg-rose-600 text-white font-semibold py-2.5 rounded-xl flex flex-col items-center justify-center gap-0.5 text-xs">
                     <IconPlus className="w-4 h-4" />Transaksi
                   </button>
                   <button onClick={openIuran} className="bg-emerald-600 text-white font-semibold py-2.5 rounded-xl flex flex-col items-center justify-center gap-0.5 text-xs">
                     <IconPlus className="w-4 h-4" />Iuran
-                  </button>
-                  <button onClick={openQuickTagihan} className="bg-slate-800 text-white font-semibold py-2.5 rounded-xl flex flex-col items-center justify-center gap-0.5 text-xs">
-                    <IconPlus className="w-4 h-4" />Tagihan
                   </button>
                 </div>
               )}
@@ -1607,7 +1659,7 @@ function App() {
                   ) : (
                     <>
                       <p className="text-xs text-slate-400 mb-2">Belum ada pembayaran tercatat untuk bulan ini.</p>
-                      <button onClick={openPengajuan} className="w-full bg-rose-600 text-white font-semibold py-2.5 rounded-xl flex items-center justify-center gap-1.5 text-sm">
+                      <button onClick={function () { openPengajuan(); }} className="w-full bg-rose-600 text-white font-semibold py-2.5 rounded-xl flex items-center justify-center gap-1.5 text-sm">
                         <IconUpload className="w-4 h-4" />Ajukan Pembayaran Iuran
                       </button>
                     </>
@@ -1842,6 +1894,43 @@ function App() {
           </div>
         </div>
 
+        {role === 'pengurus' && (
+          <div className="fixed bottom-16 left-0 right-0 flex justify-center z-30 pointer-events-none">
+            <div className="w-full max-w-md flex">
+              <div className="flex-1"></div>
+              <div className="flex-1"></div>
+              <div className="flex-1"></div>
+              <div className="flex-1"></div>
+              <div className="flex-1"></div>
+              <div className="flex-1 flex justify-center">
+                <button onClick={function () { setFabMenuOpen(function (v) { return !v; }); }} className={'pointer-events-auto w-12 h-12 rounded-full text-white shadow-lg flex items-center justify-center -mb-1 transition-transform ' + (fabMenuOpen ? 'bg-slate-800 rotate-45' : 'bg-rose-600')}>
+                  <IconPlus className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {fabMenuOpen && (
+          <div className="fixed inset-0 z-30" onClick={function () { setFabMenuOpen(false); }}>
+            <div className="fixed left-0 right-0 flex justify-center pointer-events-none" style={{ bottom: '7.5rem' }}>
+              <div className="w-full max-w-md flex justify-end pr-3">
+                <div className="pointer-events-auto bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden w-48">
+                  <button onClick={function (e) { e.stopPropagation(); setFabMenuOpen(false); openAddKegiatan(); }} className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 border-b border-slate-50">
+                    <span className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center shrink-0"><IconCalendar className="w-4 h-4 text-amber-600" /></span>Kegiatan
+                  </button>
+                  <button onClick={function (e) { e.stopPropagation(); setFabMenuOpen(false); openQuickPengumuman(); }} className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 border-b border-slate-50">
+                    <span className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center shrink-0"><IconBell className="w-4 h-4 text-blue-600" /></span>Pengumuman
+                  </button>
+                  <button onClick={function (e) { e.stopPropagation(); setFabMenuOpen(false); openQuickTagihan(); }} className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-slate-700 hover:bg-slate-50">
+                    <span className="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center shrink-0"><IconWallet className="w-4 h-4 text-rose-600" /></span>Tagihan
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {viewingWarga && (
           <div className="fixed inset-0 z-40 flex items-end justify-center" style={{ backgroundColor: 'rgba(15,23,42,0.5)' }} onClick={function () { setViewingWarga(null); }}>
             <div className="w-full max-w-md bg-white rounded-t-3xl overflow-y-auto" style={{ maxHeight: '85vh' }} onClick={function (e) { e.stopPropagation(); }}>
@@ -1946,8 +2035,14 @@ function App() {
                       <label className="text-xs font-medium text-slate-500">Pesan</label>
                       <textarea value={kegiatanForm.pesan} onChange={function (e) { setKegiatanForm(Object.assign({}, kegiatanForm, { pesan: e.target.value })); }} rows={3} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
                     </div>
+                    {kegiatanForm.jenisInfo === 'Tagihan' && (
+                      <div>
+                        <label className="text-xs font-medium text-slate-500">Nominal Tagihan (Rp)</label>
+                        <input type="number" min="0" value={kegiatanForm.nominal} onChange={function (e) { setKegiatanForm(Object.assign({}, kegiatanForm, { nominal: Number(e.target.value) || 0 })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
+                      </div>
+                    )}
                     <div>
-                      <label className="text-xs font-medium text-slate-500">{kegiatanForm.jenisInfo === 'Tagihan' ? 'Batas Tanggal Bayar' : 'Tanggal'}</label>
+                      <label className="text-xs font-medium text-slate-500">{kegiatanForm.jenisInfo === 'Tagihan' ? 'Jatuh Tempo' : 'Tanggal'}</label>
                       <input type="date" value={kegiatanForm.tanggal} onChange={function (e) { setKegiatanForm(Object.assign({}, kegiatanForm, { tanggal: e.target.value })); }} className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm" />
                     </div>
                     {kegiatanForm.jenisInfo === 'Tagihan' && (

@@ -40,9 +40,10 @@ SETUP FIREBASE (untuk Akun Warga, Chat, Notifikasi, dan Tagihan — semuanya but
 6. Commit ulang index.html supaya firebaseConfig ter-deploy.
 
 CATATAN PENTING
-- Data Warga dan Kegiatan tersimpan LOKAL per HP (localStorage) — tidak sinkron antar perangkat pengurus. Kalau ada >1 pengurus yang input data warga/kegiatan, gunakan Export/Import Excel di masing-masing halaman untuk menggabungkan data.
+- Data Kegiatan tersimpan LOKAL per HP (localStorage) — tidak sinkron antar perangkat pengurus. Kalau ada >1 pengurus yang input data kegiatan, gunakan Export/Import Excel di halaman Kegiatan untuk menggabungkan data. (Data Warga TIDAK lagi lokal — lihat catatan di bawah.)
 - Akun login warga, Chat, Notifikasi, dan Tagihan tersinkron real-time via Firebase (butuh setup di atas) — supaya akun yang dibuat pengurus bisa langsung dipakai login dari HP warga.
+- Data Warga/Keluarga kini juga tersinkron via Firebase (bukan cuma lokal lagi) — dibutuhkan supaya warga bisa melihat & mengedit data keluarganya sendiri, dan supaya fitur Ajukan Pembayaran Iuran berfungsi dari HP warga.
 - Export/Import data Warga sekarang 2 sheet dalam 1 file Excel: "Data Warga" (data keluarga) dan "Anggota Keluarga" (data tiap anggota, dihubungkan lewat kolom "ID Keluarga"). Pastikan nilai "ID Keluarga" sama persis di kedua sheet untuk satu keluarga yang sama saat mengisi manual.
-- Membuat Pengumuman/Tagihan sekarang lewat halaman Kegiatan -> tombol "Tambah Kegiatan" -> pilih Jenis Info. Tombol pintasan "+ Tagihan" juga tersedia di halaman Keuangan.
-- Tombol "Reset Semua Data" di menu Pengaturan menghapus SEMUA data (lokal & Firebase) dan mengembalikan aplikasi ke kondisi baru dengan 1 akun default (pengurus/pengurus123) — pakai ini kalau ingin memulai dari nol setelah masa uji coba/riset data.
+- Membuat Kegiatan/Pengumuman/Tagihan sekarang lewat tombol "+" melayang (pojok kanan bawah, di atas ikon Chat) yang muncul untuk akun pengurus di semua halaman. Tagihan sekarang punya field Nominal dan Jatuh Tempo — saat warga mengetuk notifikasi Tagihan, form Ajukan Pembayaran otomatis terbuka dengan nominal terisi.
+- Tombol "Reset Semua Data" di menu Pengaturan menghapus SEMUA data (lokal & Firebase, termasuk Chat dan Warga) dan mengembalikan aplikasi ke kondisi baru dengan 1 akun default (pengurus/pengurus123) — pakai ini kalau ingin memulai dari nol setelah masa uji coba/riset data.
 - Notifikasi HP hanya muncul saat aplikasi sedang dibuka/baru dibuka (bukan saat aplikasi tertutup total) — itu keterbatasan tanpa server push khusus.
