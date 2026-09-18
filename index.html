@@ -561,6 +561,22 @@ function App() {
   });
   const unreadCount = visibleNotifikasi.filter(function (n) { return !readNotifIds.includes(n.id); }).length;
 
+  const pengumumanTerbaru = notifikasiList.filter(function (n) { return n.kategori === 'Pengumuman'; })
+    .sort(function (a, b) { return new Date(b.tanggal || 0) - new Date(a.tanggal || 0); }).slice(0, 3);
+  const tagihanBulanIniNotif = visibleNotifikasi.filter(function (n) {
+    if (n.kategori !== 'Tagihan') return false;
+    if (n.berulang) return true;
+    if (!n.tanggal) return false;
+    const d = new Date(n.tanggal);
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  });
+  const goToTagihanPembayaran = () => {
+    setPage('keuangan');
+    if (role === 'anggota' && myWarga && myTagihanStatus !== 'approved' && myTagihanStatus !== 'pending') {
+      openPengajuan();
+    }
+  };
+
   const filteredWarga = wargaList.filter(function (w) { return w.namaKK.toLowerCase().includes(searchWarga.toLowerCase()); });
   const sortedKegiatan = kegiatanList.filter(function (k) { return filterPokja === 'Semua' || k.pokja === filterPokja; })
     .sort(function (a, b) { return new Date(b.tanggal) - new Date(a.tanggal); });
@@ -689,6 +705,7 @@ function App() {
   };
 
   const openAddKegiatan = () => { setKegiatanForm(emptyKegiatanForm()); setKegiatanModal('add'); };
+  const openQuickTagihan = () => { setKegiatanForm(Object.assign(emptyKegiatanForm(), { jenisInfo: 'Tagihan' })); setKegiatanModal('add'); };
   const openEditKegiatan = (k) => { setKegiatanForm(Object.assign({ kirimNotifikasi: false }, k, { jenisInfo: 'Kegiatan' })); setKegiatanModal('edit'); };
   const saveKegiatan = () => {
     if (kegiatanModal === 'add' && kegiatanForm.jenisInfo === 'Pengumuman') {
@@ -874,11 +891,33 @@ function App() {
     setKlasifikasiModal(null);
   };
 
+  const deleteAllDocs = (collectionName) => {
+    return chatDb.collection(collectionName).get().then(function (snapshot) {
+      const chunks = [];
+      let batch = chatDb.batch();
+      let count = 0;
+      snapshot.docs.forEach(function (doc) {
+        batch.delete(doc.ref);
+        count++;
+        if (count === 400) { chunks.push(batch.commit()); batch = chatDb.batch(); count = 0; }
+      });
+      if (count > 0) chunks.push(batch.commit());
+      return Promise.all(chunks);
+    });
+  };
+
   const resetLocalData = () => {
     try {
       ['dasawisma_users', 'dasawisma_warga', 'dasawisma_kegiatan', 'dasawisma_keuangan', 'dasawisma_session', 'dasawisma_idcounter', 'dasawisma_notif_read'].forEach(function (k) { localStorage.removeItem(k); });
     } catch (e) {}
-    window.location.reload();
+    if (!chatDb) { window.location.reload(); return; }
+    showToast('Menghapus semua data, mohon tunggu...');
+    Promise.all(['dasawisma_users', 'dasawisma_keuangan', 'dasawisma_notifikasi', 'dasawisma_tagihan', 'dasawisma_chat'].map(deleteAllDocs))
+      .then(function () {
+        return chatDb.collection('dasawisma_users').doc('u-pengurus').set({ namaLengkap: 'Pengurus Dasawisma', username: 'pengurus', password: 'pengurus123', role: 'pengurus', wargaId: null });
+      })
+      .catch(function () {})
+      .finally(function () { window.location.reload(); });
   };
 
   const confirmDeleteAction = () => {
@@ -1262,6 +1301,50 @@ function App() {
                 </div>
               )}
 
+              {tagihanBulanIniNotif.length > 0 && (
+                <div className="bg-white rounded-2xl p-4 border border-slate-100">
+                  <p className="text-sm font-semibold text-slate-700 mb-3">Tagihan Bulan Ini</p>
+                  {tagihanBulanIniNotif.map(function (n) {
+                    return (
+                      <button key={n.id} onClick={goToTagihanPembayaran} className="w-full flex items-center gap-3 py-2 border-b border-slate-50 last:border-0 text-left">
+                        <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center shrink-0">
+                          <IconWallet className="w-4 h-4 text-rose-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-slate-800 truncate">{n.judul}</p>
+                          <p className="text-xs text-slate-400 truncate">{n.pesan || 'Ketuk untuk bayar'}</p>
+                        </div>
+                        <IconChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {pengumumanTerbaru.length > 0 && (
+                <div className="bg-white rounded-2xl p-4 border border-slate-100">
+                  <div className="flex justify-between items-center mb-3">
+                    <p className="text-sm font-semibold text-slate-700">Pengumuman</p>
+                    <button onClick={function () { setPage('notifikasi'); }} className="text-xs text-rose-600 font-medium flex items-center">
+                      Lihat semua <IconChevronRight className="w-3 h-3" />
+                    </button>
+                  </div>
+                  {pengumumanTerbaru.map(function (n) {
+                    return (
+                      <button key={n.id} onClick={function () { setPage('notifikasi'); }} className="w-full flex items-center gap-3 py-2 border-b border-slate-50 last:border-0 text-left">
+                        <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
+                          <IconBell className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-slate-800 truncate">{n.judul}</p>
+                          <p className="text-xs text-slate-400 truncate">{n.pesan}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
               <div className="bg-white rounded-2xl p-4 border border-slate-100">
                 <div className="flex justify-between items-center mb-3">
                   <p className="text-sm font-semibold text-slate-700">Kegiatan Bulan Ini</p>
@@ -1470,6 +1553,20 @@ function App() {
                 <span className="text-lg font-bold">{formatRupiah(saldoKas)}</span>
               </div>
 
+              {role === 'pengurus' && (
+                <div className="grid grid-cols-3 gap-2">
+                  <button onClick={openAddKeuangan} className="bg-rose-600 text-white font-semibold py-2.5 rounded-xl flex flex-col items-center justify-center gap-0.5 text-xs">
+                    <IconPlus className="w-4 h-4" />Transaksi
+                  </button>
+                  <button onClick={openIuran} className="bg-emerald-600 text-white font-semibold py-2.5 rounded-xl flex flex-col items-center justify-center gap-0.5 text-xs">
+                    <IconPlus className="w-4 h-4" />Iuran
+                  </button>
+                  <button onClick={openQuickTagihan} className="bg-slate-800 text-white font-semibold py-2.5 rounded-xl flex flex-col items-center justify-center gap-0.5 text-xs">
+                    <IconPlus className="w-4 h-4" />Tagihan
+                  </button>
+                </div>
+              )}
+
               <div className="flex items-center justify-between bg-white rounded-2xl border border-slate-100 px-2 py-2">
                 <button onClick={prevBulan} className="w-9 h-9 flex items-center justify-center rounded-full text-slate-500 active:bg-slate-50">
                   <IconChevronLeft className="w-4 h-4" />
@@ -1519,13 +1616,6 @@ function App() {
 
               {role === 'pengurus' && (
                 <>
-                  <button onClick={openAddKeuangan} className="w-full bg-rose-600 text-white font-semibold py-2.5 rounded-xl flex items-center justify-center gap-1.5 text-sm">
-                    <IconPlus className="w-4 h-4" />Tambah Transaksi
-                  </button>
-                  <button onClick={openIuran} className="w-full bg-emerald-600 text-white font-semibold py-2.5 rounded-xl flex items-center justify-center gap-1.5 text-sm">
-                    <IconPlus className="w-4 h-4" />Catat Iuran Rutin (PKK + Posyandu + Dawis)
-                  </button>
-                  <p className="text-xs text-slate-400 text-center -mt-1">Untuk membuat tagihan/pengumuman baru, buka halaman Kegiatan → Tambah Kegiatan</p>
                   <div className="flex gap-2">
                     <button onClick={exportKeuangan} className="flex-1 flex items-center justify-center gap-1.5 bg-white border border-slate-200 rounded-xl py-2 text-xs font-medium text-slate-600">
                       <IconDownload className="w-3.5 h-3.5" />Export Excel
@@ -1682,9 +1772,9 @@ function App() {
                     </div>
                   </div>
                   <div className="bg-white rounded-2xl p-4 border border-red-100">
-                    <p className="text-sm font-semibold text-red-600 mb-1">Reset Data Lokal</p>
-                    <p className="text-xs text-slate-500 mb-3">Menghapus data Warga, Kegiatan, dan status baca notifikasi yang tersimpan di HP ini, lalu kembali ke kondisi awal. Data Akun (login warga), Keuangan, Chat, Notifikasi, dan Tagihan TIDAK terhapus karena tersimpan di Firebase — hapus lewat Firebase Console kalau perlu.</p>
-                    <button onClick={function () { setConfirmDelete({ type: 'resetlokal', id: null, label: 'Semua data lokal di HP ini' }); }} className="w-full bg-red-600 text-white font-semibold py-2.5 rounded-xl text-sm">Reset Data Lokal</button>
+                    <p className="text-sm font-semibold text-red-600 mb-1">Reset Semua Data</p>
+                    <p className="text-xs text-slate-500 mb-3">Menghapus SEMUA data (Warga, Kegiatan, Akun warga, Keuangan, Chat, Notifikasi, Tagihan — baik di HP ini maupun di Firebase) dan mengembalikan aplikasi ke kondisi benar-benar baru dengan 1 akun default (pengurus / pengurus123). Tindakan ini tidak bisa dibatalkan.</p>
+                    <button onClick={function () { setConfirmDelete({ type: 'resetlokal', id: null, label: 'Semua data aplikasi (HP ini dan Firebase)' }); }} className="w-full bg-red-600 text-white font-semibold py-2.5 rounded-xl text-sm">Reset Semua Data</button>
                   </div>
                 </>
               )}
